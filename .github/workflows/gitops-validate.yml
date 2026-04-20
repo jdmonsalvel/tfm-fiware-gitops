@@ -1,0 +1,64 @@
+name: GitOps Validate
+
+on:
+  pull_request:
+    paths:
+      - 'gitops/**'
+  push:
+    branches:
+      - main
+    paths:
+      - 'gitops/**'
+
+permissions:
+  contents: read
+
+jobs:
+  helm-lint:
+    name: Helm Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.14.4'
+
+      - name: Add Helm Repositories
+        run: |
+          helm repo add bitnami https://charts.bitnami.com/bitnami
+          helm repo update
+
+      - name: Lint Orion-LD Chart
+        run: helm lint gitops/charts/orion-ld --strict
+
+      - name: Lint Keyrock Chart
+        run: helm lint gitops/charts/keyrock --strict
+
+      - name: Lint Wilma Chart
+        run: helm lint gitops/charts/wilma --strict
+
+  manifest-validate:
+    name: Kubernetes Manifest Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install kubeconform
+        run: |
+          curl -sSLo kubeconform.tar.gz \
+            https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz
+          tar xf kubeconform.tar.gz
+          sudo mv kubeconform /usr/local/bin/
+
+      - name: Validate ArgoCD Application manifests
+        run: |
+          kubeconform \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+            -summary \
+            -verbose \
+            gitops/bootstrap/*.yaml gitops/apps/**/*.yaml

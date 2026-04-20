@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wilma
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: wilma
+    app.kubernetes.io/part-of: tfm-fiware-gitops
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wilma
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: wilma
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: wilma
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 1027
+              name: http
+          env:
+            {{- range $key, $value := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            - name: PEP_PROXY_IDM_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: wilma-credentials
+                  key: client-id
+            - name: PEP_PROXY_IDM_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: wilma-credentials
+                  key: client-secret
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL

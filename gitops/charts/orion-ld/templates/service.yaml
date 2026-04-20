@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "orion-ld.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "orion-ld.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "orion-ld.selectorLabels" . | nindent 4 }}

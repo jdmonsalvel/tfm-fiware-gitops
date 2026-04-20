@@ -1,0 +1,69 @@
+replicaCount: 1
+
+image:
+  repository: quay.io/fiware/orion-ld
+  tag: "1.6.0"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 1026
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: orion.PLACEHOLDER_DOMAIN
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: orion-tls
+      hosts:
+        - orion.PLACEHOLDER_DOMAIN
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+livenessProbe:
+  httpGet:
+    path: /version
+    port: 1026
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /version
+    port: 1026
+  initialDelaySeconds: 15
+  periodSeconds: 5
+
+env:
+  ORIONLD_LOG_LEVEL: WARN
+  ORIONLD_MULTI_SERVICE: "FALSE"
+  ORIONLD_DISABLE_FILE_LOG: "TRUE"
+
+existingMongoSecret: orion-mongo-uri
+
+mongodb:
+  enabled: true
+  auth:
+    enabled: true
+    existingSecret: orion-mongo-auth
+  persistence:
+    enabled: true
+    size: 10Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi

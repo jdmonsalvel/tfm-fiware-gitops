@@ -1,0 +1,47 @@
+replicaCount: 1
+
+image:
+  repository: fiware/pep-proxy
+  tag: "8.4.0"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 1027
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: orion-secure.PLACEHOLDER_DOMAIN
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: wilma-tls
+      hosts:
+        - orion-secure.PLACEHOLDER_DOMAIN
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 300m
+    memory: 256Mi
+
+env:
+  PEP_PROXY_PORT: "1027"
+  PEP_PROXY_HTTPS_ENABLED: "false"
+  PEP_PROXY_IDM_HOST: "http://keyrock:3000"
+  PEP_PROXY_IDM_PATH_PREFIX: ""
+  PEP_PROXY_APP_HOST: "http://orion-ld:1026"
+  PEP_PROXY_APP_PORT: "1026"
+  PEP_PROXY_APP_SSL_ENABLED: "false"
+  PEP_PROXY_AUTH_ENABLED: "true"
+  PEP_PROXY_ISHARE_ENABLED: "true"
+  PEP_PROXY_ISHARE_CLIENT_ID: "EU.EORI.NLFIWARE"
+  PEP_PROXY_ISHARE_SATELLITE_HOST: "https://scheme.ishare.eu"

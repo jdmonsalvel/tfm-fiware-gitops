@@ -1,0 +1,19 @@
+apiVersion: v2
+name: orion-ld
+description: FIWARE Orion-LD Context Broker — NGSI-LD compliant (ETSI GS CIM 009)
+type: application
+version: 0.1.0
+appVersion: "1.6.0"
+keywords:
+  - fiware
+  - ngsi-ld
+  - context-broker
+  - data-space
+maintainers:
+  - name: Jesus Monsalve
+    email: jdmonsalvel@gmail.com
+dependencies:
+  - name: mongodb
+    version: "15.6.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: mongodb.enabled

@@ -1,0 +1,61 @@
+replicaCount: 1
+
+image:
+  repository: fiware/idm
+  tag: "8.4.0"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 3000
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: keyrock.PLACEHOLDER_DOMAIN
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: keyrock-tls
+      hosts:
+        - keyrock.PLACEHOLDER_DOMAIN
+
+resources:
+  requests:
+    cpu: 150m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+env:
+  IDM_PORT: "3000"
+  IDM_HOST: "https://keyrock.PLACEHOLDER_DOMAIN"
+  IDM_HTTPS_ENABLED: "false"
+  IDM_DB_HOST: "keyrock-mysql"
+  IDM_DB_NAME: "idm"
+  IDM_DB_USER: "idm"
+  IDM_EMAIL_HOST: ""
+  IDM_AUTHZFORCE_ENABLED: "true"
+  IDM_AUTHZFORCE_HOST: "authzforce"
+  IDM_AUTHZFORCE_PORT: "8080"
+  IDM_ISHARE_ENABLED: "true"
+  IDM_ISHARE_CLIENT_ID: "EU.EORI.NLFIWARE"
+  IDM_ISHARE_SATELLITE_HOST: "https://scheme.ishare.eu"
+
+existingDbPasswordSecret: keyrock-db-credentials
+
+mysql:
+  enabled: true
+  auth:
+    database: idm
+    username: idm
+    existingSecret: keyrock-db-credentials
+  primary:
+    persistence:
+      enabled: true
+      size: 5Gi

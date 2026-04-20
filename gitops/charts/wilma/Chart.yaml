@@ -1,0 +1,14 @@
+apiVersion: v2
+name: wilma
+description: FIWARE Wilma PEP Proxy — Policy Enforcement Point para Orion-LD
+type: application
+version: 0.1.0
+appVersion: "8.4.0"
+keywords:
+  - fiware
+  - pep-proxy
+  - access-control
+  - data-space
+maintainers:
+  - name: Jesus Monsalve
+    email: jdmonsalvel@gmail.com

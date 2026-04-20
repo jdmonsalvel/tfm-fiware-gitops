@@ -1,0 +1,20 @@
+apiVersion: v2
+name: keyrock
+description: FIWARE Keyrock Identity Manager — OAuth2/OpenID Connect + iSHARE
+type: application
+version: 0.1.0
+appVersion: "8.4.0"
+keywords:
+  - fiware
+  - identity
+  - oauth2
+  - ishare
+  - data-space
+maintainers:
+  - name: Jesus Monsalve
+    email: jdmonsalvel@gmail.com
+dependencies:
+  - name: mysql
+    version: "10.1.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: mysql.enabled
