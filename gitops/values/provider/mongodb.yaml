@@ -1,0 +1,18 @@
+# MongoDB — base de datos de Orion-LD (Provider)
+# Sin autenticación para demo local
+# En AWS: auth.enabled: true + existingSecret con credenciales de Secrets Manager
+fullnameOverride: mongodb
+
+auth:
+  enabled: false
+
+persistence:
+  enabled: false
+
+resources:
+  requests:
+    memory: 256Mi
+    cpu: 100m
+  limits:
+    memory: 512Mi
+    cpu: 500m
