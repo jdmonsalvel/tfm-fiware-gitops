@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: fiware-ccs
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    - repoURL: https://fiware.github.io/helm-charts
+      chart: credentials-config-service
+      targetRevision: "2.*"
+      helm:
+        valueFiles:
+          - $values/gitops/values/trust-anchor/credentials-config-service.yaml
+    - repoURL: https://github.com/jdmonsalvel/tfm-fiware-gitops
+      targetRevision: HEAD
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: trust-anchor
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
