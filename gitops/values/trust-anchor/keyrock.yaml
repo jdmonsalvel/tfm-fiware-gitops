@@ -1,0 +1,36 @@
+# Keyrock — Identity Provider del Trust Anchor
+# Secreto requerido (NO en Git):
+#   kubectl create secret generic keyrock-credentials -n trust-anchor \
+#     --from-literal=dbPassword=<db_pw> \
+#     --from-literal=adminPassword=<admin_pw>
+# En AWS: gestionado por External Secrets Operator + AWS Secrets Manager (/fiware/keyrock)
+host: http://keyrock.127.0.0.1.nip.io
+
+existingSecret: keyrock-credentials
+
+db:
+  host: mysql
+  user: keyrock
+
+admin:
+  user: admin
+  email: admin@fiware.dev
+
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: nginx
+  hosts:
+    - host: keyrock.127.0.0.1.nip.io
+      paths:
+        - /
+  tls: []
+
+statefulset:
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 100m
+    limits:
+      memory: 1Gi
+      cpu: 500m
