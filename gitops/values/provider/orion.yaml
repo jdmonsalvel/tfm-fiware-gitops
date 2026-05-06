@@ -1,0 +1,28 @@
+# Orion-LD — Context Broker NGSI-LD
+broker:
+  envPrefix: ORIONLD_
+  port: 1026
+  db:
+    hosts:
+      - mongodb
+    name: orion
+    mongocOnly: true
+
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: nginx
+  hosts:
+    - host: orion.127.0.0.1.nip.io
+      paths:
+        - /
+  tls: []
+
+deployment:
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 500m
