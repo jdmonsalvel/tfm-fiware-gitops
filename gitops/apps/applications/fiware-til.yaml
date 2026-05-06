@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: fiware-til
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    - repoURL: https://fiware.github.io/helm-charts
+      chart: trusted-issuers-list
+      targetRevision: "0.18.*"
+      helm:
+        valueFiles:
+          - $values/gitops/values/trust-anchor/trusted-issuers-list.yaml
+    - repoURL: https://github.com/jdmonsalvel/tfm-fiware-gitops
+      targetRevision: HEAD
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: trust-anchor
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
