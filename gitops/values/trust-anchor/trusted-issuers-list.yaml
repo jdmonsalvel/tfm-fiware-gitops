@@ -1,0 +1,28 @@
+# Trusted Issuers List — registro de emisores de Verifiable Credentials
+# H2 in-memory para demo local (sin persistencia)
+# En AWS: persistence: true + MySQL/Postgres externo
+database:
+  persistence: false
+
+ingress:
+  til:
+    enabled: true
+    className: nginx
+    hosts:
+      - host: til.127.0.0.1.nip.io
+    tls: []
+  tir:
+    enabled: true
+    className: nginx
+    hosts:
+      - host: tir.127.0.0.1.nip.io
+    tls: []
+
+deployment:
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 300m
