@@ -1,0 +1,23 @@
+# MySQL — base de datos de Keyrock (Trust Anchor)
+# Secreto requerido (NO en Git):
+#   kubectl create secret generic mysql-credentials -n trust-anchor \
+#     --from-literal=mysql-root-password=<root_pw> \
+#     --from-literal=mysql-password=<user_pw>
+# En AWS: gestionado por External Secrets Operator + AWS Secrets Manager (/fiware/mysql)
+fullnameOverride: mysql
+
+auth:
+  existingSecret: mysql-credentials
+  database: idm
+  username: keyrock
+
+primary:
+  persistence:
+    enabled: false
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 500m
