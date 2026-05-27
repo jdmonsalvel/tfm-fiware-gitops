@@ -4,6 +4,7 @@
 *.tfstate.*
 *.tfvars
 !*.tfvars.example
+!infra/terraform-framework/variables/fiware-lab.tfvars
 .terraform.lock.hcl
 crash.log
 crash.*.log
