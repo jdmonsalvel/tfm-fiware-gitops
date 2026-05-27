@@ -43,3 +43,9 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Archivos locales — no subir al repo
+.claude/
+CLAUDE.md
+2026-*.txt
+output.txt
