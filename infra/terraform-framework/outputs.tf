@@ -138,6 +138,11 @@ output "regional_nat_gateway_public_ips" {
   value       = length(module.regional_nat_gw) > 0 ? module.regional_nat_gw[0].regional_nat_gateway_public_ips : null
 }
 
+output "iam_oidc_provider_arns" {
+  description = "Map de OIDC provider key → ARN (usar en trust policies)"
+  value       = length(module.iam) > 0 ? module.iam[0].oidc_provider_arns : {}
+}
+
 output "iam_role_arns" {
   description = "Map of IAM role name to ARN"
   value       = length(module.iam) > 0 ? module.iam[0].iam_role_arns : null

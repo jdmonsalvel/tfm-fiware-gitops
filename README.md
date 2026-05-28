@@ -64,7 +64,7 @@
 | Script | Estado |
 |---|---|
 | `scripts/bootstrap.sh` | ✅ Implementado |
-| `scripts/bootstrap-kind.sh` | ✅ Implementado (demo local) |
+| `scripts/bootstrap-kind.sh` | ❌ Eliminado (solo AWS EKS) |
 | `scripts/create-secrets.sh` | ✅ Implementado |
 | `scripts/teardown.sh` | ✅ Implementado |
 | `tests/smoke-test.sh` | ✅ Implementado |
@@ -117,14 +117,6 @@ Con Instance Scheduler (lun-vie 08:00-20:00): **~$130-150/mes**. Con Spot nodes 
 
 ---
 
-## Inicio rápido — demo local (kind)
-
-```bash
-bash scripts/bootstrap-kind.sh
-open http://argocd.127.0.0.1.nip.io
-bash tests/smoke-test.sh
-```
-
 ## Inicio rápido — AWS EKS
 
 ```bash
@@ -168,10 +160,9 @@ Los secretos **nunca están en Git**.
 
 | Entorno | Mecanismo | Prefijo |
 |---|---|---|
-| Local (kind) | `scripts/create-secrets.sh` → K8s Secrets | — |
 | AWS (EKS) | External Secrets Operator → AWS Secrets Manager | `/fiware/` |
 
-Los `values.yaml` referencian `existingSecret: <nombre>` en ambos entornos.
+Los `values.yaml` referencian `existingSecret: <nombre>` — los valores nunca en Git.
 
 ## Estructura del repositorio
 
@@ -198,7 +189,6 @@ tfm-fiware-gitops/
 │       └── provider/            # orion, mongodb
 ├── scripts/
 │   ├── bootstrap.sh             # Bootstrap EKS completo
-│   ├── bootstrap-kind.sh        # Bootstrap demo local
 │   └── create-secrets.sh        # K8s Secrets — NO en Git
 ├── tests/
 │   └── smoke-test.sh            # Test E2E 4 pasos

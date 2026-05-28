@@ -1,3 +1,10 @@
+# ── OIDC Providers ─────────────────────────────────────────────────────────────
+
+output "oidc_provider_arns" {
+  description = "Map of OIDC provider key to ARN — usar en trust policies de roles IRSA o GitHub Actions"
+  value       = { for k, v in aws_iam_openid_connect_provider.oidc : k => v.arn }
+}
+
 # ── Roles ──────────────────────────────────────────────────────────────────────
 
 output "iam_role_arns" {

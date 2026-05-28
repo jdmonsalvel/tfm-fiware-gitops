@@ -93,3 +93,14 @@ variable "iam_groups" {
   }))
   default = {}
 }
+
+variable "iam_oidc_providers" {
+  description = "Proveedores OIDC de IAM a nivel de cuenta. Necesarios para IRSA de EKS o OIDC de GitHub Actions."
+  type = map(object({
+    url             = string        # e.g. "https://token.actions.githubusercontent.com"
+    client_id_list  = list(string)  # e.g. ["sts.amazonaws.com"]
+    thumbprint_list = list(string)  # SHA1 del cert raíz del proveedor
+    tags            = optional(map(string), {})
+  }))
+  default = {}
+}

@@ -387,3 +387,54 @@ autoscaling_groups = {
     }
   }
 }
+
+# ──────────────────────────────────────────────────────────────────────────────
+# IAM — OIDC provider + rol GitHub Actions
+# Reemplaza credenciales estáticas: ninguna credencial queda en el repo ni en
+# GitHub Secrets. El token JWT de GitHub Actions es verificado directamente por
+# AWS IAM en cada ejecución del pipeline.
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Paso 1: registrar GitHub Actions como OIDC provider en la cuenta AWS
+iam_oidc_providers = {
+  github-actions = {
+    url             = "https://token.actions.githubusercontent.com"
+    client_id_list  = ["sts.amazonaws.com"]
+    # Thumbprint del certificado raíz de GitHub OIDC (válido hasta 2035)
+    thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
+  }
+}
+
+# Paso 2: rol que GitHub Actions asumirá vía OIDC
+# El ARN del provider es determinista: arn:aws:iam::<ACCOUNT_ID>:oidc-provider/token.actions.githubusercontent.com
+iam_roles = {
+  github-actions-terraform = {
+    name        = "github-actions-terraform-role"
+    description = "Asumido por GitHub Actions via OIDC — sin credenciales estaticas"
+
+    trust_statements = [
+      {
+        effect  = "Allow"
+        actions = ["sts:AssumeRoleWithWebIdentity"]
+
+        # Reemplazar <ACCOUNT_ID> con el ID de la cuenta AWS
+        federated_principals = ["arn:aws:iam::<ACCOUNT_ID>:oidc-provider/token.actions.githubusercontent.com"]
+
+        conditions = {
+          # Solo el repo del TFM puede asumir este rol
+          "StringLike" = {
+            "token.actions.githubusercontent.com:sub" = ["repo:<GITHUB_ORG>/<GITHUB_REPO>:*"]
+          }
+          # Audience requerido por AWS
+          "StringEquals" = {
+            "token.actions.githubusercontent.com:aud" = ["sts.amazonaws.com"]
+          }
+        }
+      }
+    ]
+
+    # En entorno de laboratorio se usa AdministratorAccess.
+    # En producción: sustituir por política con solo los permisos necesarios para Terraform.
+    managed_policy_arns = ["arn:aws:iam::aws:policy/AdministratorAccess"]
+  }
+}

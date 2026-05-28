@@ -45,7 +45,7 @@ Todos los demás pasos — creación de clúster, configuración de addons, sinc
 El framework garantiza idempotencia en múltiples niveles:
 
 - **Terraform:** `terraform apply` sobre un estado ya desplegado produce `0 changes` si el tfvars no ha cambiado
-- **Scripts:** `bootstrap.sh` y `bootstrap-kind.sh` usan `--dry-run=client | kubectl apply -f -` para crear namespaces de forma idempotente
+- **Scripts:** `bootstrap.sh` usa `--dry-run=client | kubectl apply -f -` para crear namespaces de forma idempotente
 - **ArgoCD:** La política `selfHeal: true` reconcilia automáticamente cualquier desviación — hacer `kubectl apply` manual sobre un recurso gestionado por ArgoCD resulta en su corrección en el siguiente ciclo de reconciliación (< 60 segundos)
 - **Secrets Manager:** `lifecycle { ignore_changes = [secret_string] }` impide que Terraform sobreescriba contraseñas rotadas manualmente
 

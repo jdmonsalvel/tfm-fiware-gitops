@@ -32,7 +32,7 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::101490102336:role/automate-cicd-role
+          role-to-assume: arn:aws:iam::101490102336:role/github-actions-terraform-role
           aws-region: eu-west-1
           role-session-name: github-actions-terraform
 

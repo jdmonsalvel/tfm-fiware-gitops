@@ -207,7 +207,7 @@ helm upgrade --install argocd argo/argo-cd \
 kubectl apply -f gitops/apps/app-of-apps.yaml
 ```
 
-Para entornos locales con `kind`, el script `scripts/bootstrap-kind.sh` proporciona un entorno de demo completo con `nip.io` para resolución DNS local.
+El despliegue objetivo es exclusivamente AWS EKS — no se contempla entorno local con kind.
 
 ### 5.2.2 Patrón App of Apps
 

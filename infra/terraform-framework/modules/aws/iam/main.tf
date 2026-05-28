@@ -1,4 +1,16 @@
 # ──────────────────────────────────────────────────────────────────────────────
+# OIDC PROVIDERS (cuenta-nivel — GitHub Actions, EKS, etc.)
+# ──────────────────────────────────────────────────────────────────────────────
+
+resource "aws_iam_openid_connect_provider" "oidc" {
+  for_each        = var.iam_oidc_providers
+  url             = each.value.url
+  client_id_list  = each.value.client_id_list
+  thumbprint_list = each.value.thumbprint_list
+  tags            = merge(var.tags, each.value.tags)
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
 # ROLES
 # ──────────────────────────────────────────────────────────────────────────────
 

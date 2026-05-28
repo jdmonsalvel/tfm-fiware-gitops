@@ -47,17 +47,17 @@ flowchart TD
 ## Patron de secretos
 
 ```
-[Local — kind]                     [AWS — EKS]
-scripts/create-secrets.sh    -->   AWS Secrets Manager (/fiware/*)
-        |                                   |
-kubectl create secret generic     External Secrets Operator
-        |                          ClusterSecretStore + ExternalSecret
-        v                                   v
-  K8s Secret: mysql-credentials      K8s Secret: mysql-credentials
-  K8s Secret: keyrock-credentials    K8s Secret: keyrock-credentials
-        |                                   |
-        +---------> existingSecret: <name> <---+
-                   (mismo values.yaml para ambos entornos)
+AWS Secrets Manager (/fiware/*)
+          |
+  External Secrets Operator
+  ClusterSecretStore + ExternalSecret
+          |
+          v
+  K8s Secret: mysql-credentials
+  K8s Secret: keyrock-credentials
+  K8s Secret: mongodb-credentials
+          |
+  existingSecret: <nombre>   ← Helm values.yaml
 ```
 
 ## Sync Waves — orden de despliegue
@@ -72,16 +72,15 @@ Wave 1  Keyrock, TIL, CCS        trust anchor (dependen de MySQL)
 Wave 2  Orion-LD                 provider (depende de MongoDB)
 ```
 
-## URLs locales (kind + nip.io)
+## URLs AWS EKS (lab-jdmonsalvel.com)
 
 | Servicio | URL |
 |----------|-----|
-| ArgoCD UI | http://argocd.127.0.0.1.nip.io |
-| Keyrock IdP | http://keyrock.127.0.0.1.nip.io |
-| Trusted Issuers List | http://til.127.0.0.1.nip.io |
-| Trusted Issuers Registry | http://tir.127.0.0.1.nip.io |
-| Credentials Config Service | http://ccs.127.0.0.1.nip.io |
-| Orion-LD Context Broker | http://orion.127.0.0.1.nip.io |
+| ArgoCD UI | https://argocd.lab-jdmonsalvel.com |
+| Keyrock IdP | https://keyrock.lab-jdmonsalvel.com |
+| Trusted Issuers List | https://til.lab-jdmonsalvel.com |
+| Credentials Config Service | https://ccs.lab-jdmonsalvel.com |
+| Orion-LD Context Broker | https://orion.lab-jdmonsalvel.com |
 
 ## Metricas objetivo
 

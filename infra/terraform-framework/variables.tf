@@ -395,6 +395,17 @@ variable "iam_groups" {
   default = {}
 }
 
+variable "iam_oidc_providers" {
+  description = "Proveedores OIDC de IAM (GitHub Actions, EKS externo, etc.)"
+  type = map(object({
+    url             = string
+    client_id_list  = list(string)
+    thumbprint_list = list(string)
+    tags            = optional(map(string), {})
+  }))
+  default = {}
+}
+
 # ──────────────────────────────────────────────────────────────────────────────
 # EKS
 # ──────────────────────────────────────────────────────────────────────────────
