@@ -4,6 +4,9 @@
 *.tfstate.*
 *.tfvars
 !*.tfvars.example
+!infra/terraform-framework/variables/template.tfvars
+tfplan
+*.tfplan
 .terraform.lock.hcl
 crash.log
 crash.*.log
@@ -11,6 +14,7 @@ override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
+backend-floci.hcl
 
 # Helm
 charts/*.tgz
@@ -43,3 +47,9 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Archivos locales — no subir al repo
+.claude/
+CLAUDE.md
+2026-*.txt
+output.txt
