@@ -3,12 +3,12 @@ name: Terraform Validate
 on:
   pull_request:
     paths:
-      - 'infrastructure/terraform/**'
+      - 'infra/terraform-framework/**'
   push:
     branches:
       - main
     paths:
-      - 'infrastructure/terraform/**'
+      - 'infra/terraform-framework/**'
 
 permissions:
   contents: read
@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: infrastructure/terraform
+        working-directory: infra/terraform-framework
 
     steps:
       - name: Checkout
@@ -43,7 +43,7 @@ jobs:
       - name: Run Checkov
         uses: bridgecrewio/checkov-action@v12
         with:
-          directory: infrastructure/terraform
+          directory: infra/terraform-framework
           framework: terraform
           output_format: sarif
           output_file_path: checkov-results.sarif

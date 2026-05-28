@@ -12,11 +12,11 @@ module "eks" {
       }
 
       network = {
-        vpc_id     = "vpc-0abc123def456789"
-        subnet_ids = ["subnet-0aaa111", "subnet-0bbb222", "subnet-0ccc333"]
+        vpc_id                   = "vpc-0abc123def456789"
+        subnet_ids               = ["subnet-0aaa111", "subnet-0bbb222", "subnet-0ccc333"]
         control_plane_subnet_ids = ["subnet-0ddd444", "subnet-0eee555", "subnet-0fff666"]
-        endpoint_public_access  = false
-        endpoint_private_access = true
+        endpoint_public_access   = false
+        endpoint_private_access  = true
       }
 
       cluster = {

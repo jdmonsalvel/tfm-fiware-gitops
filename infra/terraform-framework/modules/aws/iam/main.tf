@@ -33,7 +33,7 @@ resource "aws_iam_role" "role" {
           }
         } : {}
       )
-    ] : concat(
+      ] : concat(
       length(each.value.service_principals) > 0 ? [{
         Effect    = "Allow"
         Principal = { Service = each.value.service_principals }
@@ -121,17 +121,17 @@ resource "aws_iam_user_policy_attachment" "user_custom" {
 }
 
 resource "aws_iam_user_policy" "user_inline" {
-  for_each    = local.user_inline_policies
-  name        = each.value.policy_name
-  user        = each.value.user_name
-  policy      = each.value.policy
+  for_each = local.user_inline_policies
+  name     = each.value.policy_name
+  user     = each.value.user_name
+  policy   = each.value.policy
 }
 
 # Un recurso por usuario gestiona todas sus membresías de grupo
 resource "aws_iam_user_group_membership" "membership" {
-  for_each = { for k, v in var.iam_users : k => v if length(coalesce(v.group_memberships, [])) > 0 }
-  user     = aws_iam_user.user[each.key].name
-  groups   = each.value.group_memberships
+  for_each   = { for k, v in var.iam_users : k => v if length(coalesce(v.group_memberships, [])) > 0 }
+  user       = aws_iam_user.user[each.key].name
+  groups     = each.value.group_memberships
   depends_on = [aws_iam_group.group]
 }
 
@@ -159,8 +159,8 @@ resource "aws_iam_group_policy_attachment" "group_custom" {
 }
 
 resource "aws_iam_group_policy" "group_inline" {
-  for_each    = local.group_inline_policies
-  name        = each.value.policy_name
-  group       = each.value.group_name
-  policy      = each.value.policy
+  for_each = local.group_inline_policies
+  name     = each.value.policy_name
+  group    = each.value.group_name
+  policy   = each.value.policy
 }

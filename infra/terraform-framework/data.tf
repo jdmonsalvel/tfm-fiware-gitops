@@ -6,19 +6,9 @@ data "aws_vpcs" "vpc_id" {
   }
 }
 
-data "aws_instances" "asg_instances" {
-  instance_tags = {
-    Name = "*-asg*"  # O el tag que uses en el ASG
-  }
-  instance_state_names = ["running"]
-  depends_on = [module.autoscaling_group]
-}
-
-data "aws_instance" "asg_instance_details" {
-  for_each = toset(data.aws_instances.asg_instances.ids)
-  
-  instance_id = each.value
-}
+# data "aws_instances" / "aws_instance" para ASG suprimidos:
+# for_each sobre IDs post-apply no es soportado en plan.
+# Los outputs asg_instance_ids y asg_private_ips retornan {} cuando no hay ASG.
 
 # data "aws_subnets" "subnet_ids" {
 #   filter {

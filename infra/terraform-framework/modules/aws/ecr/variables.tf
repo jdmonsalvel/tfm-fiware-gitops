@@ -8,14 +8,14 @@ variable "ecr_repositories" {
     name = string
 
     # Mutabilidad de tags de imagen
-    image_tag_mutability = optional(string, "IMMUTABLE")   # "IMMUTABLE" | "MUTABLE"
+    image_tag_mutability = optional(string, "IMMUTABLE") # "IMMUTABLE" | "MUTABLE"
 
     # Escaneo de vulnerabilidades
     scan_on_push = optional(bool, true)
 
     # Cifrado
-    encryption_type = optional(string, "AES256")   # "AES256" | "KMS"
-    kms_key_arn     = optional(string, null)        # requerido si encryption_type = "KMS"
+    encryption_type = optional(string, "AES256") # "AES256" | "KMS"
+    kms_key_arn     = optional(string, null)     # requerido si encryption_type = "KMS"
 
     # Lifecycle policy — controla la retención de imágenes
     lifecycle_policy = optional(object({
@@ -30,7 +30,7 @@ variable "ecr_repositories" {
     }), {})
 
     # Política de acceso al repositorio (cross-account pull, CI/CD, EKS)
-    repository_policy = optional(string, null)   # JSON raw; null = solo la cuenta actual
+    repository_policy = optional(string, null) # JSON raw; null = solo la cuenta actual
 
     # Replicación a otras regiones o cuentas
     # (se configura a nivel de registry, no de repositorio individual)
@@ -47,11 +47,11 @@ variable "ecr_repositories" {
 variable "registry_scanning" {
   description = "Configuración de escaneo continuo a nivel de registry"
   type = object({
-    enabled       = optional(bool, false)
-    scan_type     = optional(string, "ENHANCED")   # "BASIC" | "ENHANCED" (requiere Inspector)
-    scan_filters  = optional(list(object({
-      filter      = string   # wildcard, ej: "prod/*"
-      filter_type = string   # "WILDCARD"
+    enabled   = optional(bool, false)
+    scan_type = optional(string, "ENHANCED") # "BASIC" | "ENHANCED" (requiere Inspector)
+    scan_filters = optional(list(object({
+      filter      = string # wildcard, ej: "prod/*"
+      filter_type = string # "WILDCARD"
     })), [])
   })
   default = {}
@@ -61,9 +61,9 @@ variable "registry_replication" {
   description = "Reglas de replicación cross-region o cross-account del registry"
   type = list(object({
     destination_region     = string
-    destination_account_id = optional(string, null)   # null = misma cuenta
+    destination_account_id = optional(string, null) # null = misma cuenta
     repository_filters = optional(list(object({
-      filter      = string   # "PREFIX_MATCH"
+      filter      = string # "PREFIX_MATCH"
       filter_type = string
     })), [])
   }))

@@ -51,12 +51,12 @@ resource "helm_release" "kube_prometheus_stack" {
   values = [yamlencode({
     prometheus = {
       prometheusSpec = {
-        retention          = "${local.retention_days}d"
+        retention = "${local.retention_days}d"
         storageSpec = {
           volumeClaimTemplate = {
             spec = {
               storageClassName = "gp3"
-              resources = { requests = { storage = "50Gi" } }
+              resources        = { requests = { storage = "50Gi" } }
             }
           }
         }
@@ -76,7 +76,7 @@ resource "helm_release" "kube_prometheus_stack" {
           volumeClaimTemplate = {
             spec = {
               storageClassName = "gp3"
-              resources = { requests = { storage = "10Gi" } }
+              resources        = { requests = { storage = "10Gi" } }
             }
           }
         }
@@ -122,9 +122,9 @@ resource "helm_release" "loki" {
     singleBinary = {
       replicas = 1
       persistence = {
-        enabled          = true
-        storageClass     = "gp3"
-        size             = "20Gi"
+        enabled      = true
+        storageClass = "gp3"
+        size         = "20Gi"
       }
       extraEnv = [{
         name  = "AWS_ROLE_ARN"

@@ -5,10 +5,11 @@ locals {
         key                = "${rt_key}-${route_key}"
         route_table_id     = aws_route_table.route_table[rt_key].id
         cidr_block         = route_value.destiny
-        transit_gateway_id = lookup(var.transit_gateway_attachment_ids, route_value.target, null) != null ? var.transit_gateway_id == null ? data.aws_ec2_transit_gateway_attachment.tgw_attachment[route_value.target].transit_gateway_id : var.transit_gateway_id : null
-        nat_gateway_id = coalesce(
-          lookup(var.nat_gateway_ids, route_value.target, null),
-          lookup(var.regional_nat_gateway_ids, route_value.target, null)
+        transit_gateway_id = lookup(var.transit_gateway_attachment_ids, route_value.target, null) != null ? var.transit_gateway_id : null
+        nat_gateway_id = (
+          lookup(var.nat_gateway_ids, route_value.target, null) != null
+          ? lookup(var.nat_gateway_ids, route_value.target, null)
+          : lookup(var.regional_nat_gateway_ids, route_value.target, null)
         )
         gateway_id = (
           lookup(var.transit_gateway_attachment_ids, route_value.target, null) == null &&

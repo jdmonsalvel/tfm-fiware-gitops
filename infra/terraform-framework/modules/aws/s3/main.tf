@@ -157,7 +157,7 @@ resource "aws_s3_bucket_website_configuration" "bucket" {
   bucket = aws_s3_bucket.bucket[each.key].id
 
   index_document { suffix = each.value.website.index_document }
-  error_document { key    = each.value.website.error_document }
+  error_document { key = each.value.website.error_document }
 }
 
 # ──────────────────────────────────────────────────────────────────────────────

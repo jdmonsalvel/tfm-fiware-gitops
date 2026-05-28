@@ -1,0 +1,50 @@
+name: Terraform Apply
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'infra/terraform-framework/**'
+
+permissions:
+  contents: read
+  id-token: write   # OIDC → AWS AssumeRoleWithWebIdentity
+
+jobs:
+  apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    environment: aws-lab          # requiere aprobación manual en GitHub Environments
+    defaults:
+      run:
+        working-directory: infra/terraform-framework
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.7"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::101490102336:role/automate-cicd-role
+          aws-region: eu-west-1
+          role-session-name: github-actions-terraform
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Plan
+        run: terraform plan -var-file="variables/aws-personal.tfvars" -out=tfplan
+
+      - name: Terraform Apply
+        run: terraform apply tfplan
+
+      - name: Show Outputs
+        if: always()
+        run: terraform output -json 2>/dev/null || true

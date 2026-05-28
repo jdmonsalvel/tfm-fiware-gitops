@@ -1,12 +1,6 @@
-variable "use_floci" {
-  type        = bool
-  default     = false
-  description = "Redirige todos los endpoints AWS a Floci local (http://localhost:4566). Usar con -var='use_floci=true'."
-}
-
 variable "account_id" {
   type    = string
-  default = "000000000000"
+  default = ""
 }
 
 variable "region" {
@@ -70,7 +64,7 @@ variable "subnets" {
     availability_zone = string
     vpc_name          = string
     name              = string
-    network_acl_name  = string
+    network_acl_name  = optional(string, null)
     ip_public_auto    = optional(bool, false)
     db_subnet         = optional(bool, false)
     tags              = optional(map(string))
@@ -479,4 +473,52 @@ variable "acm_certificates" {
   description = "Mapa de certificados ACM — ver modules/aws/acm/variables.tf para el schema completo"
   type        = any
   default     = {}
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# INSTANCE SCHEDULER
+# ──────────────────────────────────────────────────────────────────────────────
+
+variable "instance_schedulers" {
+  description = "Mapa de schedulers — ver modules/aws/instance-scheduler/variables.tf para el schema completo"
+  type        = any
+  default     = {}
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SECRETS MANAGER
+# ──────────────────────────────────────────────────────────────────────────────
+
+variable "secrets_manager_secrets" {
+  description = "Mapa de secretos AWS Secrets Manager — ver modules/aws/secrets-manager/variables.tf"
+  type        = any
+  default     = {}
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SECURITY GROUP CROSS-RULES
+# Reglas de ingress que referencian SGs de origen por nombre (evita dependencia
+# circular en el mapa security_groups). Se crean DESPUÉS del módulo de SG.
+# ──────────────────────────────────────────────────────────────────────────────
+
+variable "security_group_rules" {
+  description = "Reglas de ingress cross-SG: referencian SGs por nombre (key del mapa security_groups)"
+  type = map(object({
+    sg_name        = string           # SG destino (key en security_groups)
+    source_sg_name = optional(string) # SG origen  (key en security_groups); mutuamente exclusivo con cidr_ipv4
+    cidr_ipv4      = optional(string) # CIDR origen alternativo
+    from_port      = optional(number, -1)
+    to_port        = optional(number, -1)
+    ip_protocol    = optional(string, "-1")
+    description    = optional(string, "")
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for k, v in var.security_group_rules :
+      (v.source_sg_name != null) != (v.cidr_ipv4 != null)
+    ])
+    error_message = "Cada regla debe tener exactamente uno de: source_sg_name o cidr_ipv4."
+  }
 }

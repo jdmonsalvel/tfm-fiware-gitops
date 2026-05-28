@@ -7,8 +7,8 @@ variable "route53_zones" {
   type = map(object({
     name              = string
     comment           = optional(string, "")
-    vpc_ids           = optional(list(string), [])   # privada si non-empty
-    delegation_set_id = optional(string, null)       # solo zonas públicas
+    vpc_ids           = optional(list(string), []) # privada si non-empty
+    delegation_set_id = optional(string, null)     # solo zonas públicas
     force_destroy     = optional(bool, false)
     tags              = optional(map(string), {})
   }))
@@ -17,12 +17,12 @@ variable "route53_zones" {
 
 variable "route53_records" {
   type = map(object({
-    zone_key = string   # clave del mapa route53_zones
-    name     = string   # relativo o FQDN — Route53 acepta ambos
-    type     = string   # A | AAAA | CNAME | MX | TXT | NS | SRV | CAA
+    zone_key = string # clave del mapa route53_zones
+    name     = string # relativo o FQDN — Route53 acepta ambos
+    type     = string # A | AAAA | CNAME | MX | TXT | NS | SRV | CAA
 
     ttl     = optional(number, 300)
-    records = optional(list(string), [])   # IPs, FQDNs, strings TXT…
+    records = optional(list(string), []) # IPs, FQDNs, strings TXT…
 
     alias = optional(object({
       name                   = string
@@ -31,7 +31,7 @@ variable "route53_records" {
     }), null)
 
     health_check_id = optional(string, null)
-    set_identifier  = optional(string, null)   # obligatorio con routing policies
+    set_identifier  = optional(string, null) # obligatorio con routing policies
 
     weighted_routing = optional(object({
       weight = number
@@ -42,7 +42,7 @@ variable "route53_records" {
     }), null)
 
     failover_routing = optional(object({
-      type = string   # "PRIMARY" | "SECONDARY"
+      type = string # "PRIMARY" | "SECONDARY"
     }), null)
   }))
   default = {}

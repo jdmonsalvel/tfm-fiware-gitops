@@ -106,17 +106,11 @@ output "autoscaling_group_arns" {
 
 
 output "asg_instance_ids" {
-  value = length(module.autoscaling_group) > 0 ? {
-    for id, instance in data.aws_instance.asg_instance_details :
-    "${lookup(instance.tags, "Name", "instance")}-${substr(instance.id, -8, 8)}" => instance.id
-  } : null
+  value = {}
 }
 
 output "asg_private_ips" {
-  value = length(module.autoscaling_group) > 0 ? {
-    for id, instance in data.aws_instance.asg_instance_details :
-    "${lookup(instance.tags, "Name", "instance")}-${substr(instance.id, -8, 8)}" => instance.private_ip
-  } : null
+  value = {}
 }
 
 output "kms_key_ids" {
@@ -231,4 +225,24 @@ output "acm_certificate_arns" {
 output "acm_certificate_statuses" {
   description = "Map de nombre_clave → estado del certificado ACM"
   value       = length(module.acm) > 0 ? module.acm[0].certificate_statuses : {}
+}
+
+output "instance_scheduler_hub_role_arns" {
+  description = "Map de nombre_clave → ARN del rol Lambda del hub (usar en spokes)"
+  value       = length(module.instance_scheduler) > 0 ? module.instance_scheduler[0].hub_scheduler_role_arns : {}
+}
+
+output "instance_scheduler_hub_config_tables" {
+  description = "Map de nombre_clave → tabla DynamoDB de configuración del hub"
+  value       = length(module.instance_scheduler) > 0 ? module.instance_scheduler[0].hub_config_table_names : {}
+}
+
+output "secret_arns" {
+  description = "Map de nombre_clave → ARN del secreto en Secrets Manager"
+  value       = length(module.secrets_manager) > 0 ? module.secrets_manager[0].secret_arns : {}
+}
+
+output "secret_ids" {
+  description = "Map de nombre_clave → path del secreto en Secrets Manager"
+  value       = length(module.secrets_manager) > 0 ? module.secrets_manager[0].secret_ids : {}
 }

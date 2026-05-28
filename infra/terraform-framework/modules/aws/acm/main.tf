@@ -41,7 +41,7 @@ resource "aws_route53_record" "validation" {
 # ──────────────────────────────────────────────────────────────────────────────
 
 resource "aws_acm_certificate_validation" "cert" {
-  for_each = local.dns_validated
+  for_each = var.wait_for_validation ? local.dns_validated : {}
 
   certificate_arn = aws_acm_certificate.cert[each.key].arn
 

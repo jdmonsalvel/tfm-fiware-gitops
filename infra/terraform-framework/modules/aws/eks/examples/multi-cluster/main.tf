@@ -11,16 +11,16 @@ module "eks" {
         vpc_id     = "vpc-0hub111"
         subnet_ids = ["subnet-hub-a", "subnet-hub-b", "subnet-hub-c"]
       }
-      cluster  = { kubernetes_version = "1.33" }
-      addons   = { karpenter = true, cluster_autoscaler = false }
-      compute  = {
+      cluster = { kubernetes_version = "1.33" }
+      addons  = { karpenter = true, cluster_autoscaler = false }
+      compute = {
         cluster_tools_node_group = { instance_types = ["m7i.large"], min_size = 2, max_size = 4, desired_size = 2 }
         workload_node_groups = {
           karpenter-infra = { instance_types = ["m7i.xlarge"], min_size = 1, max_size = 3, desired_size = 1 }
         }
       }
       monitoring = { mode = "standard", storage = { s3_bucket_name = "monitoring-platform" } }
-      tags = { Role = "platform-hub" }
+      tags       = { Role = "platform-hub" }
     }
 
     # Tenant cluster — aplicaciones negocio

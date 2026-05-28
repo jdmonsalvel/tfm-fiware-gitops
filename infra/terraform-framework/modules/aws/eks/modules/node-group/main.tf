@@ -24,16 +24,10 @@ resource "aws_launch_template" "node_group" {
   metadata_options {
     http_endpoint               = "enabled"
     http_tokens                 = "required" # IMDSv2 obligatorio
-    http_put_response_hop_limit = 2           # 2 necesario para pods en el nodo
+    http_put_response_hop_limit = 2          # 2 necesario para pods en el nodo
   }
 
-  # AMI custom: especificar imagen + user_data con nodeadm
-  # Si ami_id = null: no especificar imagen (EKS la selecciona según versión K8s + ami_type)
-  dynamic "image_id" {
-    for_each = each.value.config.ami_id != null ? [each.value.config.ami_id] : []
-    content {} # El image_id se establece en el argumento directo abajo
-  }
-
+  # AMI custom: si ami_id = null, EKS selecciona la imagen según versión K8s + ami_type
   image_id  = each.value.config.ami_id
   user_data = each.value.config.ami_id != null ? base64encode(local.userdata_al2023) : null
 
@@ -88,13 +82,7 @@ resource "aws_eks_node_group" "node_group" {
     max_unavailable_percentage = 33
   }
 
-  dynamic "label" {
-    for_each = each.value.config.labels
-    content {
-      key   = label.key
-      value = label.value
-    }
-  }
+  labels = each.value.config.labels
 
   dynamic "taint" {
     for_each = each.value.config.taints

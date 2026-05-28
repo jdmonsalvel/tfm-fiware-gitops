@@ -44,7 +44,7 @@ resource "kubernetes_manifest" "karpenter_node_class" {
     }
     spec = {
       amiFamily = "AL2023"
-      role       = var.karpenter_node_role_arn
+      role      = var.karpenter_node_role_arn
       subnetSelectorTerms = [{
         tags = { "kubernetes.io/cluster/${var.cluster_name}" = "shared" }
       }]

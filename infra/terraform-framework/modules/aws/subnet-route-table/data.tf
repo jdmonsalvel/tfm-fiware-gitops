@@ -1,9 +1,4 @@
-data "aws_ec2_transit_gateway_attachment" "tgw_attachment" {
-  for_each = {
-    for k, v in var.transit_gateway_attachment_ids : k => v
-    if var.transit_gateway_id == null
-  }
-
-  transit_gateway_attachment_id = each.value
-}
-
+# data "aws_ec2_transit_gateway_attachment" suprimido:
+# for_each sobre IDs de module output (unknown at plan time) no es soportado.
+# El lookup del TGW ID se resuelve pasando transit_gateway_id directamente
+# en el tfvars cuando se necesita Transit Gateway.

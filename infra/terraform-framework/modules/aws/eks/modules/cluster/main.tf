@@ -47,7 +47,9 @@ resource "aws_security_group_rule" "cluster_additional" {
 # ──────────────────────────────────────────────────────────────────────────────
 
 resource "aws_ec2_tag" "subnet_cluster" {
-  for_each    = toset(var.subnet_ids)
+  # Índice numérico como clave para que for_each funcione cuando los IDs de
+  # subnet son desconocidos en plan-time (caso single-apply desde estado vacío).
+  for_each    = { for idx, id in var.subnet_ids : tostring(idx) => id }
   resource_id = each.value
   key         = "kubernetes.io/cluster/${var.cluster_name}"
   value       = "shared"
@@ -95,10 +97,14 @@ resource "aws_eks_cluster" "cluster" {
 
   tags = merge(var.tags, var.cluster_tags, { Name = var.cluster_name })
 
-  # Protección contra borrado accidental (configurable, on en producción)
   lifecycle {
-    prevent_destroy = false # overrideable por el operador con -target + tfvars
-    ignore_changes  = [tags]
+    prevent_destroy = false
+    # access_config.bootstrap_cluster_creator_admin_permissions es inmutable en EKS
+    # (solo se puede establecer en la creación, no modificar tras crear el cluster).
+    ignore_changes = [
+      tags,
+      access_config,
+    ]
   }
 
   depends_on = [aws_security_group.cluster]
@@ -128,8 +134,8 @@ resource "aws_iam_openid_connect_provider" "cluster" {
 resource "aws_eks_addon" "coredns" {
   count = try(var.addons.coredns, true) ? 1 : 0
 
-  cluster_name             = aws_eks_cluster.cluster.name
-  addon_name               = "coredns"
+  cluster_name                = aws_eks_cluster.cluster.name
+  addon_name                  = "coredns"
   resolve_conflicts_on_update = "OVERWRITE"
 
   tags = merge(var.tags, var.cluster_tags)
@@ -138,8 +144,8 @@ resource "aws_eks_addon" "coredns" {
 resource "aws_eks_addon" "kube_proxy" {
   count = try(var.addons.kube_proxy, true) ? 1 : 0
 
-  cluster_name             = aws_eks_cluster.cluster.name
-  addon_name               = "kube-proxy"
+  cluster_name                = aws_eks_cluster.cluster.name
+  addon_name                  = "kube-proxy"
   resolve_conflicts_on_update = "OVERWRITE"
 
   tags = merge(var.tags, var.cluster_tags)
@@ -148,8 +154,8 @@ resource "aws_eks_addon" "kube_proxy" {
 resource "aws_eks_addon" "vpc_cni" {
   count = try(var.addons.vpc_cni, true) ? 1 : 0
 
-  cluster_name             = aws_eks_cluster.cluster.name
-  addon_name               = "vpc-cni"
+  cluster_name                = aws_eks_cluster.cluster.name
+  addon_name                  = "vpc-cni"
   resolve_conflicts_on_update = "OVERWRITE"
 
   tags = merge(var.tags, var.cluster_tags)

@@ -63,10 +63,10 @@ module "irsa" {
   for_each = var.eks
   source   = "./modules/irsa"
 
-  cluster_name      = each.key
-  oidc_issuer_url   = module.cluster[each.key].oidc_issuer_url
-  oidc_provider_arn = module.cluster[each.key].oidc_provider_arn
-  karpenter_enabled = try(each.value.addons.karpenter, false)
+  cluster_name        = each.key
+  oidc_issuer_url     = module.cluster[each.key].oidc_issuer_url
+  oidc_provider_arn   = module.cluster[each.key].oidc_provider_arn
+  karpenter_enabled   = try(each.value.addons.karpenter, false)
   karpenter_queue_arn = module.iam[each.key].karpenter_queue_arn
 
   addons = {
@@ -138,7 +138,7 @@ module "access" {
 # ──────────────────────────────────────────────────────────────────────────────
 
 locals {
-  cluster_region = { for k, v in var.eks : k => try(v.account.region, data.aws_region.current.name) }
+  cluster_region = { for k, v in var.eks : k => try(v.account.region, data.aws_region.current.id) }
 }
 
 resource "local_file" "bootstrap_tfvars" {
@@ -146,9 +146,9 @@ resource "local_file" "bootstrap_tfvars" {
 
   filename = "${path.module}/bootstrap/generated/${each.key}.tfvars.json"
   content = jsonencode({
-    cluster_name    = each.key
-    cluster_region  = local.cluster_region[each.key]
-    cluster_version = module.cluster[each.key].cluster_version
+    cluster_name     = each.key
+    cluster_region   = local.cluster_region[each.key]
+    cluster_version  = module.cluster[each.key].cluster_version
     cluster_endpoint = module.cluster[each.key].cluster_endpoint
     cluster_ca       = module.cluster[each.key].cluster_certificate_authority_data
     vpc_id           = each.value.network.vpc_id
@@ -177,15 +177,15 @@ resource "local_file" "bootstrap_tfvars" {
       reloader                     = try(each.value.addons.reloader, false)
     }
 
-    helm_versions    = local.helm_versions[each.key]
-    monitoring       = try(each.value.monitoring, {})
+    helm_versions     = local.helm_versions[each.key]
+    monitoring        = try(each.value.monitoring, {})
     monitoring_bucket = local.monitoring_bucket[each.key]
 
-    karpenter_queue_url   = module.iam[each.key].karpenter_queue_url
+    karpenter_queue_url     = module.iam[each.key].karpenter_queue_url
     karpenter_node_role_arn = module.iam[each.key].karpenter_node_role_arn
 
-    backend_bucket = var.backend_bucket
-    backend_region = var.backend_region
+    backend_bucket  = var.backend_bucket
+    backend_region  = var.backend_region
     assume_role_arn = try(each.value.account.assume_role_arn, "")
   })
 
@@ -211,7 +211,7 @@ resource "terraform_data" "bootstrap" {
   }
 
   depends_on = [
-    local_file.bootstrap_tfvars[each.key],
-    module.node_group[each.key],
+    local_file.bootstrap_tfvars,
+    module.node_group,
   ]
 }

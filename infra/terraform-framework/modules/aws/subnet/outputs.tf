@@ -7,7 +7,7 @@ output "db_subnet_ids" {
   description = "List of subnet IDs where db_subnet = true (used by db-subnet-group)"
   value = [
     for k, s in aws_subnet.subnet : s.id
-    if lookup(var.subnets[k], "db_subnet", false)
+    if try(var.subnets[k].db_subnet, false)
   ]
 }
 

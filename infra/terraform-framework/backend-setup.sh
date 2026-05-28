@@ -1,208 +1,286 @@
 #!/bin/bash
+# backend-setup.sh — Configura el backend S3 y ejecuta terraform init.
+#
+# Modos de uso:
+#
+#   Cuenta única (personal / lab):
+#     ./backend-setup.sh single <profile>
+#     Crea manager-cicd-role y automate-cicd-role en la misma cuenta si no
+#     existen, asume el chain y ejecuta terraform init.
+#
+#   Multi-cuenta (DevOps hub → cuenta destino):
+#     ./backend-setup.sh multi <manager-profile> <managed-profile> <manager-account-id>
+#     Asume el chain manager-cicd-role → automate-cicd-role entre cuentas.
+#     Los roles deben existir previamente (crearlos con backend-state/backend-create.sh).
+#
+# En ambos modos:
+#   - Sin DynamoDB (lab de un solo operador, locking no necesario).
+#   - Selección interactiva del tfvars.
+#   - Genera backend.tf y ejecuta terraform init.
 
 set -euo pipefail
 
-# Color codes for output
+# ─── Colores ──────────────────────────────────────────────────────────────────
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# Function to print colored output
-log_info() {
-    echo -e "${GREEN}[INFO]${NC} $1"
+log_info()  { echo -e "${GREEN}[INFO]${NC} $1"; }
+log_warn()  { echo -e "${YELLOW}[WARN]${NC} $1"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+
+usage() {
+    echo "Uso:"
+    echo "  $0 single <profile>"
+    echo "  $0 multi  <manager-profile> <managed-profile> <manager-account-id>"
+    exit 1
 }
 
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
+# ─── Argumentos ───────────────────────────────────────────────────────────────
+MODE="${1:-}"
+if [ "$MODE" = "single" ]; then
+    [ $# -ne 2 ] && usage
+    MANAGER_PROFILE="$2"
+    MANAGED_PROFILE="$2"
+    SINGLE_ACCOUNT=true
+elif [ "$MODE" = "multi" ]; then
+    [ $# -ne 4 ] && usage
+    MANAGER_PROFILE="$2"
+    MANAGED_PROFILE="$3"
+    MANAGER_ACCOUNT_ID_PARAM="$4"
+    SINGLE_ACCOUNT=false
+else
+    usage
+fi
 
-log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
-}
-
-# ============================================
-# Select tfvars file interactively
-# ============================================
+# ─── Selección interactiva del tfvars ─────────────────────────────────────────
 VARIABLES_DIR="variables"
-if [ ! -d "$VARIABLES_DIR" ]; then
-    log_error "Directory not found: $VARIABLES_DIR"
-    exit 1
-fi
+[ ! -d "$VARIABLES_DIR" ] && { log_error "Directorio no encontrado: $VARIABLES_DIR"; exit 1; }
 
-# Find all .tfvars files
-TFVARS_FILES=($(find "$VARIABLES_DIR" -maxdepth 1 -name "*.tfvars" -type f | sort))
+mapfile -t TFVARS_FILES < <(find "$VARIABLES_DIR" -maxdepth 1 -name "*.tfvars" -type f | sort)
+[ ${#TFVARS_FILES[@]} -eq 0 ] && { log_error "No hay ficheros .tfvars en $VARIABLES_DIR"; exit 1; }
 
-if [ ${#TFVARS_FILES[@]} -eq 0 ]; then
-    log_error "No .tfvars files found in $VARIABLES_DIR"
-    exit 1
-fi
-
-log_info "Available tfvars files:"
+log_info "Ficheros tfvars disponibles:"
 for i in "${!TFVARS_FILES[@]}"; do
-    # show filename without .tfvars extension
     echo "  $((i+1))) $(basename "${TFVARS_FILES[$i]}" .tfvars)"
 done
 
-read -p "Select a tfvars file (enter number): " SELECTION
+read -rp "Selecciona un fichero (número): " SELECTION
 SELECTION=$((SELECTION - 1))
-
-if [ "$SELECTION" -lt 0 ] || [ "$SELECTION" -ge "${#TFVARS_FILES[@]}" ]; then
-    log_error "Invalid selection"
-    exit 1
-fi
+[[ "$SELECTION" -lt 0 || "$SELECTION" -ge "${#TFVARS_FILES[@]}" ]] && { log_error "Selección inválida"; exit 1; }
 
 TFVARS_FILE="${TFVARS_FILES[$SELECTION]}"
-log_info "Selected: $TFVARS_FILE"
+log_info "Seleccionado: $TFVARS_FILE"
 
-# Determine manager account id: use first script arg if present, otherwise try to detect via AWS
-if [ -n "${1:-}" ]; then
-    MANAGER_ACCOUNT_ID="${1}"
-else
-    MANAGER_ACCOUNT_ID="324037284958"
-fi
-
-# ============================================
-# Extract variables from tfvars
-# ============================================
-extract_var() {
-    grep "^$1" "$TFVARS_FILE" | sed 's/.*=\s*"\(.*\)".*/\1/'
-}
+# ─── Extraer variables del tfvars ─────────────────────────────────────────────
+extract_var() { grep "^$1" "$TFVARS_FILE" | sed 's/.*=\s*"\(.*\)".*/\1/'; }
 
 ACCOUNT_ID=$(extract_var "account_id")
 REGION=$(extract_var "region")
 ENVIRONMENT=$(extract_var "environment")
 PROJECT=$(extract_var "project")
 
-if [ -z "$ACCOUNT_ID" ] || [ -z "$REGION" ] || [ -z "$ENVIRONMENT" ] || [ -z "$PROJECT" ]; then
-    log_error "Missing required variables in $TFVARS_FILE"
+[ -z "$ACCOUNT_ID" ] || [ -z "$REGION" ] || [ -z "$ENVIRONMENT" ] || [ -z "$PROJECT" ] && {
+    log_error "Faltan variables en $TFVARS_FILE (account_id, region, environment, project)"
     exit 1
+}
+
+# En modo single el manager y el managed son la misma cuenta
+if $SINGLE_ACCOUNT; then
+    MANAGER_ACCOUNT_ID=$(aws sts get-caller-identity --profile "$MANAGER_PROFILE" --query Account --output text)
+    # Verificar que el profile apunta a la cuenta del tfvars
+    if [ "$MANAGER_ACCOUNT_ID" != "$ACCOUNT_ID" ]; then
+        log_warn "El profile $MANAGER_PROFILE corresponde a la cuenta $MANAGER_ACCOUNT_ID"
+        log_warn "El tfvars define account_id=$ACCOUNT_ID — usando la cuenta real del profile"
+        ACCOUNT_ID="$MANAGER_ACCOUNT_ID"
+    fi
+else
+    MANAGER_ACCOUNT_ID="$MANAGER_ACCOUNT_ID_PARAM"
+    log_info "Manager account ID: $MANAGER_ACCOUNT_ID"
 fi
 
-log_info "Extracted variables:"
-log_info "  Account ID: $ACCOUNT_ID"
-log_info "  Region: $REGION"
-log_info "  Environment: $ENVIRONMENT"
-log_info "  Project: $PROJECT"
+log_info "Account ID (managed): $ACCOUNT_ID  |  Region: $REGION  |  Project: $PROJECT  |  Env: $ENVIRONMENT"
 
-# ============================================
-# Assume roles (manager-cicd-role -> automate-cicd-role)
-# ============================================
-log_info "Assuming role chain: manager-cicd-role -> automate-cicd-role"
-
-# Get current caller identity
-CURRENT_CALLER=$(aws sts get-caller-identity --query 'Arn' --output text)
-log_info "Current caller: $CURRENT_CALLER (Account: $MANAGER_ACCOUNT_ID)"
-
-# Step 1: Assume manager-cicd-role in manager account
-log_info "Assuming manager-cicd-role in manager account ($MANAGER_ACCOUNT_ID)..."
-MANAGER_ROLE_ARN="arn:aws:iam::${MANAGER_ACCOUNT_ID}:role/manager-cicd-role"
-
-MANAGER_CREDS=$(aws sts assume-role \
-    --role-arn "$MANAGER_ROLE_ARN" \
-    --role-session-name "terraform-backend-setup-$(date +%s)" \
-    --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
-    --output text)
-
-read -r MANAGER_ACCESS_KEY MANAGER_SECRET_KEY MANAGER_SESSION_TOKEN <<< "$MANAGER_CREDS"
-
-export AWS_ACCESS_KEY_ID="$MANAGER_ACCESS_KEY"
-export AWS_SECRET_ACCESS_KEY="$MANAGER_SECRET_KEY"
-export AWS_SESSION_TOKEN="$MANAGER_SESSION_TOKEN"
-
-log_info "Successfully assumed manager-cicd-role"
-
-# Debug: show caller identity for manager role
-MANAGER_IDENTITY=$(aws sts get-caller-identity --query Arn --output text 2>/dev/null || echo "unknown")
-log_info "Identity after assuming manager role: $MANAGER_IDENTITY"
-
-# Step 2: Assume automate-cicd-role in managed account using manager-cicd-role credentials
-log_info "Assuming automate-cicd-role in managed account ($ACCOUNT_ID)..."
-AUTOMATE_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/automate-cicd-role"
-
-AUTOMATE_CREDS=$(aws sts assume-role \
-    --role-arn "$AUTOMATE_ROLE_ARN" \
-    --role-session-name "terraform-init-$(date +%s)" \
-    --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
-    --output text)
-
-read -r AUTOMATE_ACCESS_KEY AUTOMATE_SECRET_KEY AUTOMATE_SESSION_TOKEN <<< "$AUTOMATE_CREDS"
-
-export AWS_ACCESS_KEY_ID="$AUTOMATE_ACCESS_KEY"
-export AWS_SECRET_ACCESS_KEY="$AUTOMATE_SECRET_KEY"
-export AWS_SESSION_TOKEN="$AUTOMATE_SESSION_TOKEN"
-
-log_info "Successfully assumed automate-cicd-role"
-
-# Debug: show caller identity for automate role
-AUTOMATE_IDENTITY=$(aws sts get-caller-identity --query Arn --output text 2>/dev/null || echo "unknown")
-log_info "Identity after assuming automate role: $AUTOMATE_IDENTITY"
-
-# ============================================
-# Fetch backend config from manager account
-# ============================================
-log_info "Fetching backend configuration..."
-
-# Re-export manager credentials temporarily to fetch config
-export AWS_ACCESS_KEY_ID="$MANAGER_ACCESS_KEY"
-export AWS_SECRET_ACCESS_KEY="$MANAGER_SECRET_KEY"
-export AWS_SESSION_TOKEN="$MANAGER_SESSION_TOKEN"
-
+# ─── Bucket S3 ────────────────────────────────────────────────────────────────
 BUCKET_NAME="devops-${MANAGER_ACCOUNT_ID}-terraform-state-bucket"
-TABLE_NAME="${ACCOUNT_ID}-terraform-state-lock-${PROJECT}-${ENVIRONMENT}-${REGION}"
-
-log_info "Backend bucket: $BUCKET_NAME"
-log_info "DynamoDB table: $TABLE_NAME"
-
-# Restore automate credentials for terraform
-export AWS_ACCESS_KEY_ID="$MANAGER_ACCESS_KEY"
-export AWS_SECRET_ACCESS_KEY="$MANAGER_SECRET_KEY"
-export AWS_SESSION_TOKEN="$MANAGER_SESSION_TOKEN"
-
-# ============================================
-# Generate backend.tf template
-# ============================================
-rm -rf backend.tf .terraform .terraform.*
-BACKEND_FILE="backend.tf"
-log_info "Generating $BACKEND_FILE template..."
-rm -rf "$BACKEND_FILE"
-
-## Create folder structure in bucket
 FOLDER_PATH="${ACCOUNT_ID}/terraform-aws-${PROJECT}-${ENVIRONMENT}-${REGION}"
-log_info "Creating folder structure: $FOLDER_PATH"
+STATE_KEY="${FOLDER_PATH}.tfstate"
 
-cat > "$BACKEND_FILE" <<EOF
+log_info "Bucket S3: $BUCKET_NAME"
+
+BUCKET_EXISTS=$(aws s3 ls --profile "$MANAGER_PROFILE" | awk '{print $3}' | grep "^${BUCKET_NAME}$" || true)
+if [ -z "$BUCKET_EXISTS" ]; then
+    log_info "Creando bucket..."
+    if [ "$REGION" = "us-east-1" ]; then
+        aws s3api create-bucket --bucket "$BUCKET_NAME" --region "$REGION" --profile "$MANAGER_PROFILE"
+    else
+        aws s3api create-bucket \
+            --bucket "$BUCKET_NAME" --region "$REGION" \
+            --create-bucket-configuration LocationConstraint="$REGION" \
+            --profile "$MANAGER_PROFILE"
+    fi
+    aws s3api put-bucket-versioning \
+        --bucket "$BUCKET_NAME" \
+        --versioning-configuration Status=Enabled \
+        --profile "$MANAGER_PROFILE"
+    aws s3api put-bucket-encryption \
+        --bucket "$BUCKET_NAME" \
+        --server-side-encryption-configuration \
+            '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"},"BucketKeyEnabled":true}]}' \
+        --profile "$MANAGER_PROFILE"
+    aws s3api put-public-access-block \
+        --bucket "$BUCKET_NAME" \
+        --public-access-block-configuration \
+            BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true \
+        --profile "$MANAGER_PROFILE"
+    log_info "Bucket creado y configurado."
+else
+    log_info "Bucket ya existe."
+fi
+
+# ─── IAM roles ────────────────────────────────────────────────────────────────
+# manager-cicd-role: se crea en la cuenta manager (o la única cuenta en single)
+log_info "Verificando manager-cicd-role en cuenta $MANAGER_ACCOUNT_ID..."
+ROLE_EXISTS=$(aws iam get-role --role-name manager-cicd-role --profile "$MANAGER_PROFILE" 2>/dev/null \
+    | grep -c RoleName || true)
+
+if [ "$ROLE_EXISTS" -eq 0 ]; then
+    log_info "Creando manager-cicd-role..."
+    aws iam create-role \
+        --role-name manager-cicd-role \
+        --profile "$MANAGER_PROFILE" \
+        --assume-role-policy-document "{
+          \"Version\": \"2012-10-17\",
+          \"Statement\": [{
+            \"Effect\": \"Allow\",
+            \"Principal\": {\"AWS\": \"arn:aws:iam::${MANAGER_ACCOUNT_ID}:root\"},
+            \"Action\": \"sts:AssumeRole\"
+          }]
+        }" \
+        --tags Key=Name,Value=manager-cicd-role Key=ManagedBy,Value=terraform
+    aws iam attach-role-policy \
+        --role-name manager-cicd-role \
+        --policy-arn arn:aws:iam::aws:policy/AdministratorAccess \
+        --profile "$MANAGER_PROFILE"
+    log_info "manager-cicd-role creado."
+else
+    log_info "manager-cicd-role ya existe."
+fi
+
+# automate-cicd-role: se crea en la cuenta managed (igual que la manager en single)
+log_info "Verificando automate-cicd-role en cuenta $ACCOUNT_ID..."
+ROLE_MANAGED=$(aws iam get-role --role-name automate-cicd-role --profile "$MANAGED_PROFILE" 2>/dev/null \
+    | grep -c RoleName || true)
+
+if [ "$ROLE_MANAGED" -eq 0 ]; then
+    log_info "Creando automate-cicd-role..."
+    if $SINGLE_ACCOUNT; then
+        # Single-account: el usuario IAM asume automate-cicd-role directamente.
+        # Se usa el ARN del caller actual (no el rol, que aún puede no estar propagado).
+        CALLER_ARN=$(aws sts get-caller-identity --profile "$MANAGED_PROFILE" --query Arn --output text)
+        AUTOMATE_PRINCIPAL="$CALLER_ARN"
+    else
+        AUTOMATE_PRINCIPAL="arn:aws:iam::${MANAGER_ACCOUNT_ID}:role/manager-cicd-role"
+    fi
+    aws iam create-role \
+        --role-name automate-cicd-role \
+        --profile "$MANAGED_PROFILE" \
+        --assume-role-policy-document "{
+          \"Version\": \"2012-10-17\",
+          \"Statement\": [{
+            \"Effect\": \"Allow\",
+            \"Principal\": {\"AWS\": \"${AUTOMATE_PRINCIPAL}\"},
+            \"Action\": \"sts:AssumeRole\"
+          }]
+        }" \
+        --tags Key=Name,Value=automate-cicd-role Key=ManagedBy,Value=terraform
+    aws iam attach-role-policy \
+        --role-name automate-cicd-role \
+        --policy-arn arn:aws:iam::aws:policy/AdministratorAccess \
+        --profile "$MANAGED_PROFILE"
+    log_info "automate-cicd-role creado."
+else
+    log_info "automate-cicd-role ya existe."
+fi
+
+# ─── Asumir role chain ────────────────────────────────────────────────────────
+if $SINGLE_ACCOUNT; then
+    # Single-account: el usuario del profile asume automate-cicd-role directamente.
+    # No se necesita el chain manager → automate; Terraform's provider hace el assume
+    # internamente con las credenciales del profile cuando ejecuta plan/apply.
+    log_info "Modo single-account: asumiendo automate-cicd-role directamente..."
+    AUTOMATE_CREDS=$(aws sts assume-role \
+        --profile "$MANAGER_PROFILE" \
+        --role-arn "arn:aws:iam::${ACCOUNT_ID}:role/automate-cicd-role" \
+        --role-session-name "terraform-init-$(date +%s)" \
+        --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
+        --output text)
+    read -r A_KEY A_SECRET A_TOKEN <<< "$AUTOMATE_CREDS"
+    export AWS_ACCESS_KEY_ID="$A_KEY"
+    export AWS_SECRET_ACCESS_KEY="$A_SECRET"
+    export AWS_SESSION_TOKEN="$A_TOKEN"
+    log_info "Identidad: $(aws sts get-caller-identity --query Arn --output text)"
+else
+    # Multi-account: chain manager-cicd-role → automate-cicd-role
+    log_info "Asumiendo manager-cicd-role..."
+    MANAGER_CREDS=$(aws sts assume-role \
+        --profile "$MANAGER_PROFILE" \
+        --role-arn "arn:aws:iam::${MANAGER_ACCOUNT_ID}:role/manager-cicd-role" \
+        --role-session-name "backend-setup-$(date +%s)" \
+        --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
+        --output text)
+    read -r M_KEY M_SECRET M_TOKEN <<< "$MANAGER_CREDS"
+    export AWS_ACCESS_KEY_ID="$M_KEY"
+    export AWS_SECRET_ACCESS_KEY="$M_SECRET"
+    export AWS_SESSION_TOKEN="$M_TOKEN"
+    log_info "Identidad tras manager-cicd-role: $(aws sts get-caller-identity --query Arn --output text)"
+
+    log_info "Asumiendo automate-cicd-role..."
+    AUTOMATE_CREDS=$(aws sts assume-role \
+        --role-arn "arn:aws:iam::${ACCOUNT_ID}:role/automate-cicd-role" \
+        --role-session-name "terraform-init-$(date +%s)" \
+        --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
+        --output text)
+    read -r A_KEY A_SECRET A_TOKEN <<< "$AUTOMATE_CREDS"
+    export AWS_ACCESS_KEY_ID="$A_KEY"
+    export AWS_SECRET_ACCESS_KEY="$A_SECRET"
+    export AWS_SESSION_TOKEN="$A_TOKEN"
+    log_info "Identidad tras automate-cicd-role: $(aws sts get-caller-identity --query Arn --output text)"
+fi
+
+# ─── Generar backend.tf + terraform init ─────────────────────────────────────
+log_info "Generando backend.tf..."
+rm -f backend.tf .terraform/terraform.tfstate
+cat > backend.tf <<EOF
 terraform {
   backend "s3" {
-    region         = "$REGION"
-    bucket         = "$BUCKET_NAME"
-    dynamodb_table = "$TABLE_NAME"
-    encrypt        = true
-    key            = "$FOLDER_PATH.tfstate"
+    bucket  = "$BUCKET_NAME"
+    key     = "$STATE_KEY"
+    region  = "$REGION"
+    encrypt = true
+    # Sin DynamoDB — lab de un único operador
   }
 }
 EOF
 
-log_info "Backend configuration saved to: $BACKEND_FILE"
+log_info "Ejecutando terraform init..."
+terraform init \
+    -backend-config="access_key=${AWS_ACCESS_KEY_ID}" \
+    -backend-config="secret_key=${AWS_SECRET_ACCESS_KEY}" \
+    -backend-config="token=${AWS_SESSION_TOKEN}"
 
-# ============================================
-# Run terraform init
-# ============================================
-log_info "Running terraform init..."
-terraform init
-
-# Print summary
 echo -e ""
-echo -e "${GREEN}Setup completed successfully!${NC}"
+echo -e "${GREEN}Setup completado.${NC}"
 echo -e ""
-echo -e "${GREEN}Summary:${NC}"
-echo -e "  Manager Account ID: $MANAGER_ACCOUNT_ID"
-echo -e "  Managed Account ID: $ACCOUNT_ID"
-echo -e "  S3 Bucket: $BUCKET_NAME"
-echo -e "  DynamoDB Table: $TABLE_NAME"
-echo -e "  State File Path: s3://$BUCKET_NAME/$FOLDER_PATH.tfstate"
-echo -e "  Backend Config File: $BACKEND_FILE"
+echo -e "${GREEN}Resumen:${NC}"
+echo -e "  Modo:         $([ "$SINGLE_ACCOUNT" = true ] && echo 'single-account' || echo 'multi-account')"
+echo -e "  Manager acct: $MANAGER_ACCOUNT_ID"
+echo -e "  Managed acct: $ACCOUNT_ID"
+echo -e "  Bucket S3:    s3://$BUCKET_NAME"
+echo -e "  State key:    $STATE_KEY"
+echo -e "  backend.tf:   $(pwd)/backend.tf"
 echo -e ""
-echo -e "${YELLOW}Next Steps:${NC}"
-echo -e "  1. Your Terraform backend is now configured"
-echo -e "  2. You can now run: terraform plan, terraform apply, etc."
+echo -e "${YELLOW}Próximos pasos:${NC}"
+echo -e "  terraform plan  -var-file=$TFVARS_FILE"
+echo -e "  terraform apply -var-file=$TFVARS_FILE"

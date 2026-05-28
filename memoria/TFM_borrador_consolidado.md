@@ -12,7 +12,7 @@
 > A lo largo del documento se señalan bloques `[FIGURA X]` con:
 > - **Qué mostrar**: contenido exacto de la captura o diagrama
 > - **Cómo obtenerla**: el comando o herramienta para generarla
-> - **Cuándo añadirla**: antes de depósito / tras implementación Floci / tras implementación AWS
+> - **Cuándo añadirla**: antes de depósito / tras terraform apply / tras despliegue FIWARE
 
 ---
 
@@ -305,7 +305,7 @@ Componentes adicionales:
 > **[FIGURA 9 — Patrón App of Apps en ArgoCD: jerarquía de Applications]**  
 > **Qué mostrar**: Árbol jerárquico. Raíz: `app-of-apps`. Nivel 1: `trust-anchor` (wave 1), `data-space-connector` (wave 2), `monitoring` (wave 0). Nivel 2: sub-componentes de cada Application. Mostrar el estado Synced/Healthy en cada nodo.  
 > **Cómo obtenerla**: Captura de pantalla de la UI de ArgoCD tras el despliegue.  
-> **Cuándo añadirla**: Tras implementación (Floci o AWS).
+> **Cuándo añadirla**: Tras despliegue FIWARE vía ArgoCD en AWS.
 
 ---
 
@@ -392,7 +392,7 @@ infra/terraform-framework/
 ├── main.tf              — Orquestador: invoca todos los módulos con count-guard
 ├── variables.tf         — Variables raíz tipo = any (schema en cada módulo)
 ├── outputs.tf           — Outputs planos: { nombre → id/arn }
-├── providers.tf         — AWS provider con soporte dual (real / Floci)
+├── providers.tf         — AWS provider con assume_role (automate-cicd-role)
 └── modules/aws/
     ├── vpc/             — aws_vpc + flow logs
     ├── subnet/          — aws_subnet + asociación ACL
@@ -442,112 +442,123 @@ output "cluster_endpoints" {
 > **[FIGURA 11 — Grafo de dependencias entre módulos Terraform del TFM]**  
 > **Qué mostrar**: DAG con los módulos como nodos y sus dependencias como aristas. Destacar la cadena EKS sin ciclos: `iam → cluster (OIDC) → irsa → node-group`. Mostrar también las dependencias de `acm → route53` y `eks → s3`.  
 > **Cómo obtenerla**: Elaboración propia o `terraform graph | dot -Tsvg > graph.svg` tras `terraform init`.  
-> **Cuándo añadirla**: Tras ejecutar `terraform init` en Floci.
+> **Cuándo añadirla**: Antes del depósito (no requiere apply).
 
 ---
 
 #### 4.2.2 Configuración del proyecto: tfvars
 
-Todos los recursos específicos del TFM se declaran en `infra/terraform-framework/variables/fiware-lab.tfvars`. Este fichero es la única fuente de verdad de los parámetros de la infraestructura:
+Todos los recursos específicos del TFM se declaran en `infra/terraform-framework/variables/aws-personal.tfvars`. Este fichero es la única fuente de verdad de los parámetros de la infraestructura. El framework resuelve los nombres de VPC y subnets a IDs mediante los outputs de los módulos, eliminando la necesidad de conocer IDs previamente:
 
 ```hcl
-# ── Metadatos del proyecto ────────────────────────────────────────────────────
-use_floci   = true
-project     = "tfm-fiware"
+# ── Metadatos del proyecto ─────────────────────────────────────────────────
+account_id  = "101490102336"
+region      = "eu-west-1"
+project     = "tfm-fiware-gitops"
 environment = "lab"
 accountable = "jdmonsalvel"
-region      = "eu-west-1"
-account_id  = "000000000000"
 
-tags = {
-  Project     = "tfm-fiware-gitops"
-  Environment = "lab"
-  ManagedBy   = "terraform"
-  Owner       = "jdmonsalvel"
-}
-
-# ── Red: VPC 10.0.0.0/16 en 3 AZs ───────────────────────────────────────────
+# ── Red: VPC 10.0.0.0/16 en 3 AZs ────────────────────────────────────────
 vpcs = {
-  main = {
-    name                 = "tfm-fiware-vpc"
-    cidr_block           = "10.0.0.0/16"
-    enable_dns_hostnames = true
-    enable_dns_support   = true
-    tags                 = { Name = "tfm-fiware-vpc" }
+  fiware-vpc = {
+    name       = "tfm-fiware-vpc"
+    cidr_block = "10.0.0.0/16"
   }
 }
 
 subnets = {
-  # Capa pública — ALB, NAT Gateway
-  public-a = { name = "public-eu-west-1a", cidr_block = "10.0.101.0/24",
-                az = "eu-west-1a", vpc_name = "main", public = true }
-  public-b = { name = "public-eu-west-1b", cidr_block = "10.0.102.0/24",
-                az = "eu-west-1b", vpc_name = "main", public = true }
-  public-c = { name = "public-eu-west-1c", cidr_block = "10.0.103.0/24",
-                az = "eu-west-1c", vpc_name = "main", public = true }
+  # Capa pública — ALB, Internet Gateway
+  pub-a = { name = "tfm-fiware-pub-a", cidr_block = "10.0.101.0/24",
+             availability_zone = "a", vpc_name = "fiware-vpc", ip_public_auto = true }
+  pub-b = { name = "tfm-fiware-pub-b", cidr_block = "10.0.102.0/24",
+             availability_zone = "b", vpc_name = "fiware-vpc", ip_public_auto = true }
+  pub-c = { name = "tfm-fiware-pub-c", cidr_block = "10.0.103.0/24",
+             availability_zone = "c", vpc_name = "fiware-vpc", ip_public_auto = true }
 
-  # Capa privada app — nodos EKS
-  private-a = { name = "private-eu-west-1a", cidr_block = "10.0.1.0/24",
-                 az = "eu-west-1a", vpc_name = "main", public = false }
-  private-b = { name = "private-eu-west-1b", cidr_block = "10.0.2.0/24",
-                 az = "eu-west-1b", vpc_name = "main", public = false }
-  private-c = { name = "private-eu-west-1c", cidr_block = "10.0.3.0/24",
-                 az = "eu-west-1c", vpc_name = "main", public = false }
-
-  # Capa privada datos — RDS, DocumentDB
-  data-a = { name = "data-eu-west-1a", cidr_block = "10.0.201.0/24",
-              az = "eu-west-1a", vpc_name = "main", public = false }
-  data-b = { name = "data-eu-west-1b", cidr_block = "10.0.202.0/24",
-              az = "eu-west-1b", vpc_name = "main", public = false }
-  data-c = { name = "data-eu-west-1c", cidr_block = "10.0.203.0/24",
-              az = "eu-west-1c", vpc_name = "main", public = false }
+  # Capa privada app — nodos EKS (sin IP pública)
+  priv-app-a = { name = "tfm-fiware-priv-app-a", cidr_block = "10.0.1.0/24",
+                  availability_zone = "a", vpc_name = "fiware-vpc" }
+  priv-app-b = { name = "tfm-fiware-priv-app-b", cidr_block = "10.0.2.0/24",
+                  availability_zone = "b", vpc_name = "fiware-vpc" }
+  priv-app-c = { name = "tfm-fiware-priv-app-c", cidr_block = "10.0.3.0/24",
+                  availability_zone = "c", vpc_name = "fiware-vpc" }
 }
 
-# ── EKS — clúster fiware-gitops ───────────────────────────────────────────────
+nat_gateways = {
+  fiware-nat = {
+    name              = "tfm-fiware-nat"
+    subnet_name       = "pub-a"      # NAT único en eu-west-1a (lab)
+    connectivity_type = "public"
+  }
+}
+
+# ── EKS — clúster fiware-gitops (Kubernetes 1.33) ─────────────────────────
 eks = {
   fiware-gitops = {
-    name    = "fiware-gitops"
-    version = "1.29"
-    # [A COMPLETAR con subnet_names, node config, addons tras implementación]
+    network = {
+      vpc_name                   = "fiware-vpc"
+      subnet_names               = ["priv-app-a", "priv-app-b", "priv-app-c"]
+      control_plane_subnet_names = ["pub-a", "pub-b", "pub-c"]
+      endpoint_public_access     = true
+      endpoint_private_access    = true
+    }
+    cluster = {
+      kubernetes_version = "1.33"
+      deletion_protection = false
+    }
+    compute = {
+      workload_node_groups = {
+        fiware = {
+          capacity_type  = "ON_DEMAND"
+          instance_types = ["t3.xlarge"]
+          min_size       = 2
+          max_size       = 4
+          desired_size   = 3
+          disk_size      = 100
+        }
+      }
+    }
+    addons = {
+      coredns                      = true
+      kube_proxy                   = true
+      vpc_cni                      = true
+      ebs_csi                      = true
+      aws_load_balancer_controller = true
+      external_secrets             = true
+      metrics_server               = true
+      cert_manager                 = true
+    }
   }
 }
 
-# ── S3 — almacenamiento ───────────────────────────────────────────────────────
+# ── S3 — almacenamiento ────────────────────────────────────────────────────
 s3_buckets = {
-  terraform-state = {
-    name       = "tfm-fiware-terraform-state"
-    versioning = true
-    tags       = { Purpose = "terraform-state" }
-  }
-  velero-backups = {
-    name       = "tfm-fiware-velero-backups"
-    versioning = true
-    tags       = { Purpose = "velero" }
-  }
-  loki-logs = {
-    name = "tfm-fiware-loki-logs"
-    lifecycle_rules = [{
-      id      = "loki-retention"
-      enabled = true
-      expiration_days = 30
-    }]
-    tags = { Purpose = "loki" }
-  }
+  terraform-state = { name = "tfm-fiware-terraform-state", versioning = true }
+  velero-backups  = { name = "tfm-fiware-velero-backups",  versioning = true }
+  loki-logs       = { name = "tfm-fiware-loki-logs",       versioning = false }
 }
 ```
 
 #### 4.2.3 Despliegue de infraestructura base
 
 ```bash
-# 1. Arrancar Floci
-cd ~/floci && docker compose up -d
-
-# 2. Inicializar y aplicar
+# 1. Inicializar backend S3 (primera vez)
 cd infra/terraform-framework
-terraform init
-terraform apply -var-file=variables/fiware-lab.tfvars -auto-approve
+./backend-setup.sh single personal-account-lab
 
-# 3. Verificar outputs
+# 2. Planificar y aplicar (Fase 1: red + S3, $0)
+AWS_PROFILE=personal-account-lab \
+  terraform apply --var-file="variables/aws-personal.tfvars" -auto-approve
+
+# 3. Aplicar EKS (Fase 2: descomentar bloque eks en tfvars, ~$0.10/h)
+AWS_PROFILE=personal-account-lab \
+  terraform apply --var-file="variables/aws-personal.tfvars" -auto-approve
+
+# 4. Actualizar kubeconfig
+aws eks update-kubeconfig --name fiware-gitops --region eu-west-1 \
+  --profile personal-account-lab
+
+# 5. Verificar outputs
 terraform output vpc_ids
 terraform output subnet_ids
 terraform output eks_cluster_endpoints
@@ -555,10 +566,10 @@ terraform output eks_cluster_endpoints
 
 ---
 
-> **[FIGURA 12 — Output de terraform apply: recursos AWS creados en Floci]**  
-> **Qué mostrar**: Terminal con el output de `terraform apply` mostrando los recursos creados (VPC ID, subnet IDs, EKS endpoint). Puede ser captura de terminal o texto formateado.  
-> **Cómo obtenerla**: `terraform apply -var-file=variables/fiware-lab.tfvars 2>&1 | tee output-apply.txt`  
-> **Cuándo añadirla**: Tras ejecutar terraform apply en Floci.
+> **[FIGURA 12 — Output de terraform apply: recursos AWS creados]**  
+> **Qué mostrar**: Terminal con el output de `terraform apply` mostrando los recursos creados (VPC ID, subnet IDs, NAT GW, EKS endpoint) y la línea final `Apply complete! X resources added`.  
+> **Cómo obtenerla**: `AWS_PROFILE=personal-account-lab terraform apply --var-file="variables/aws-personal.tfvars" 2>&1 | tee output-apply.txt`  
+> **Cuándo añadirla**: Tras ejecutar terraform apply contra AWS real.
 
 ---
 
@@ -787,7 +798,7 @@ jobs:
 ## Capítulo 5 — Resultados
 
 > **[A COMPLETAR CON DATOS REALES DE LA IMPLEMENTACIÓN]**
-> Este capítulo se completa tras ejecutar la implementación en Floci y/o AWS. La estructura está definida; solo faltan los datos medidos.
+> Este capítulo se completa tras ejecutar la implementación en AWS. La estructura está definida; solo faltan los datos medidos (ver Guía de relleno al final del documento).
 
 ### 5.1 Resultados del despliegue de infraestructura (Terraform)
 
@@ -805,7 +816,7 @@ jobs:
 > **[FIGURA 18 — terraform output: IDs de recursos AWS creados]**  
 > **Qué mostrar**: Terminal con el resultado de `terraform output` mostrando vpc_ids, subnet_ids, eks_cluster_endpoints, s3_bucket_ids. Todos los valores deben ser reales (no placeholders).  
 > **Cómo obtenerla**: `terraform output -json | jq .` tras apply exitoso.  
-> **Cuándo añadirla**: Tras terraform apply en Floci.
+> **Cuándo añadirla**: Tras terraform apply en AWS (Bloque B de la Guía de relleno).
 
 ---
 
@@ -1047,7 +1058,7 @@ Amazon Web Services. (2024). *AWS Load Balancer Controller Documentation*.
 | 9 | Patrón App of Apps en ArgoCD: jerarquía de Applications | ⬜ Requiere implementación |
 | 10 | Mapa de dependencias del Helm Umbrella FIWARE | ⬜ Pendiente (elaboración propia) |
 | 11 | Grafo de dependencias entre módulos Terraform | ⬜ Requiere terraform init |
-| 12 | Output de terraform apply: recursos AWS creados en Floci | ⬜ Requiere terraform apply |
+| 12 | Output de terraform apply: recursos AWS creados | ⬜ Requiere terraform apply (AWS real) |
 | 13 | ArgoCD UI: todas las Applications Synced/Healthy | ⬜ Requiere implementación |
 | 14 | ArgoCD UI: detalle de trust-anchor Application | ⬜ Requiere implementación |
 | 15 | Flujo de secretos: AWS Secrets Manager → ExternalSecret → K8s Secret | ⬜ Pendiente (elaboración propia) |
@@ -1059,3 +1070,122 @@ Amazon Web Services. (2024). *AWS Load Balancer Controller Documentation*.
 | 21 | kubectl drain + smoke test: continuidad durante fallo de nodo | ⬜ Requiere implementación |
 | 22 | Grafana: métricas durante prueba de fallo de nodo | ⬜ Requiere implementación |
 | 23 | Flujo GitOps completo: git push → ArgoCD sync → pod nuevo | ⬜ Requiere implementación |
+
+---
+
+## Guía de relleno — orden de captura durante el despliegue
+
+> Seguir este orden el día del deploy. Cada bloque indica qué capturar, el comando exacto y en qué figura va.
+
+### BLOQUE A — Antes del deploy (elaboración propia, draw.io)
+
+Crear estas figuras en draw.io usando `docs/diagramas-drawio.md` como especificación:
+
+| Fig | Título | Archivo de salida |
+|-----|--------|-------------------|
+| 1 | Brecha manual vs GitOps | `docs/images/fig01-manual-vs-gitops.png` |
+| 2 | Ecosistema FIWARE: roles y componentes | `docs/images/fig02-fiware-ecosystem.png` |
+| 3 | Marco regulatorio EU (capas) | `docs/images/fig03-marco-regulatorio.png` |
+| 5 | Push vs Pull (seguridad) | `docs/images/fig05-push-vs-pull.png` |
+| 6 | Arquitectura interna ArgoCD | `docs/images/fig06-argocd-interno.png` |
+| 7 | Gantt / fases metodológicas | `docs/images/fig07-gantt.png` |
+| 8 | Arquitectura de red AWS (VPC) | `docs/images/fig08-red-vpc.png` |
+| 10 | Mapa dependencias Helm Umbrella | `docs/images/fig10-helm-deps.png` |
+| 15 | Flujo secretos ESO + ASM | `docs/images/fig15-secretos-eso.png` |
+
+Figuras en Mermaid (ya están en `docs/diagramas.md`, renderizar a PNG):
+
+| Fig | Título |
+|-----|--------|
+| 4 | Flujo autenticación SIOP-2 |
+| 9 | App of Apps con Sync Waves |
+
+### BLOQUE B — Durante terraform apply
+
+```bash
+# Capturar Fig 12 + Fig 18
+AWS_PROFILE=personal-account-lab \
+  terraform apply --var-file="variables/aws-personal.tfvars" \
+  2>&1 | tee docs/evidencias/terraform-apply-output.txt
+
+# Capturar Fig 11 (grafo módulos)
+terraform graph | dot -Tpng > docs/images/fig11-terraform-graph.png
+
+# Capturar Fig 18 (outputs tras apply)
+terraform output -json > docs/evidencias/terraform-outputs.json
+```
+
+### BLOQUE C — Tras EKS Ready
+
+```bash
+# Capturar Fig 19 (nodos)
+kubectl get nodes -o wide | tee docs/evidencias/kubectl-get-nodes.txt
+
+# Capturar Fig 19 (pods)
+kubectl get pods -A | tee docs/evidencias/kubectl-get-pods.txt
+
+# Screenshot de la consola AWS EKS → guardar como docs/images/fig19-eks-console.png
+```
+
+### BLOQUE D — Tras ArgoCD + FIWARE sincronizado
+
+```bash
+# Acceder a ArgoCD UI
+kubectl port-forward svc/argocd-server -n argocd 8080:443
+
+# CAPTURAS (screenshots manuales):
+# Fig 13 → pantalla principal ArgoCD (todas las apps en verde)
+#   Guardar: docs/images/fig13-argocd-apps-healthy.png
+# Fig 14 → detalle Application trust-anchor (sync history)
+#   Guardar: docs/images/fig14-argocd-trust-anchor-detail.png
+
+# Capturar Fig 16 (Grafana)
+kubectl port-forward svc/grafana -n monitoring 3000:80
+# Screenshot del dashboard → docs/images/fig16-grafana-dashboard.png
+```
+
+### BLOQUE E — Smoke test E2E
+
+```bash
+# Capturar Fig 20
+bash tests/smoke-test.sh 2>&1 | tee docs/evidencias/smoke-test-output.txt
+
+# Copiar output al documento en §5.3
+```
+
+### BLOQUE F — Demo GitOps (escalar Orion-LD)
+
+```bash
+# 1. Editar gitops/values/provider/values-orion.yaml
+#    Cambiar replicaCount: 2 → 3
+
+# 2. Commit y push
+git add gitops/values/provider/values-orion.yaml
+git commit -m "feat: escalar Orion-LD a 3 replicas"
+git push origin main
+
+# 3. Esperar sync ArgoCD (< 3 min) y capturar:
+# Fig 23a → GitHub: diff del commit
+#   Screenshot: docs/images/fig23a-github-commit.png
+# Fig 23b → ArgoCD UI: sync en progreso con nuevo commit SHA
+#   Screenshot: docs/images/fig23b-argocd-sync-progress.png
+# Fig 23c → kubectl get pods: 3 réplicas Running
+kubectl get pods -n provider | tee docs/evidencias/orion-scale-output.txt
+#   Screenshot: docs/images/fig23c-kubectl-orion-3-replicas.png
+```
+
+### BLOQUE G — Prueba de tolerancia a fallos
+
+```bash
+# Medir Fig 21
+NODE=$(kubectl get nodes --no-headers | awk 'NR==2{print $1}')
+echo "Iniciando drain de $NODE a $(date)"
+kubectl cordon $NODE
+kubectl drain $NODE --ignore-daemonsets --delete-emptydir-data &
+bash tests/smoke-test.sh   # debe pasar en verde mientras drena
+echo "Drain completado a $(date)"
+kubectl uncordon $NODE
+
+# Screenshot tmux side-by-side → docs/images/fig21-drain-smoke-test.png
+# Rellenar tabla §5.4 con los tiempos medidos
+```

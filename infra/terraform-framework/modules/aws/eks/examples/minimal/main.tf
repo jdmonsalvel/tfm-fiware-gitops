@@ -12,14 +12,14 @@ module "eks" {
       }
 
       cluster = {
-        kubernetes_version = "1.33"
+        kubernetes_version  = "1.33"
         deletion_protection = false
       }
 
       addons = {
-        cert_manager   = true
+        cert_manager     = true
         external_secrets = true
-        metrics_server = true
+        metrics_server   = true
       }
 
       compute = {

@@ -30,7 +30,7 @@ locals {
             countNumber = try(repo.lifecycle_policy.max_untagged_image_age_days, 7)
           }
           action = { type = "expire" }
-        }] : [{
+          }] : [{
           rulePriority = 10
           description  = "Expirar imágenes sin tag después de 7 días (default)"
           selection = {

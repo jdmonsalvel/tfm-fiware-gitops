@@ -131,9 +131,24 @@ module "eks" {
   count          = length(var.eks) > 0 ? 1 : 0
   source         = "./modules/aws/eks"
   tags           = local.tags
-  eks            = var.eks
   backend_bucket = var.eks_backend_bucket
   backend_region = var.eks_backend_region
+
+  # Resuelve nombres de VPC/subnet a IDs usando los outputs de los módulos de red.
+  # En el tfvars se usan claves (vpc_name, subnet_names) en lugar de IDs hardcodeados.
+  eks = {
+    for k, v in var.eks : k => merge(v, {
+      network = {
+        vpc_id                                  = local.vpc_ids[v.network.vpc_name]
+        subnet_ids                              = [for s in v.network.subnet_names : local.subnet_ids[s]]
+        control_plane_subnet_ids                = try(v.network.control_plane_subnet_names, null) != null ? [for s in v.network.control_plane_subnet_names : local.subnet_ids[s]] : null
+        endpoint_public_access                  = try(v.network.endpoint_public_access, false)
+        endpoint_private_access                 = try(v.network.endpoint_private_access, true)
+        public_access_cidrs                     = try(v.network.public_access_cidrs, ["0.0.0.0/0"])
+        cluster_security_group_additional_rules = try(v.network.cluster_security_group_additional_rules, {})
+      }
+    })
+  }
 }
 
 module "s3" {
@@ -189,6 +204,13 @@ module "acm" {
   zone_ids         = length(module.route53) > 0 ? module.route53[0].zone_ids : {}
 }
 
+module "instance_scheduler" {
+  count               = length(var.instance_schedulers) > 0 ? 1 : 0
+  source              = "./modules/aws/instance-scheduler"
+  tags                = local.tags
+  instance_schedulers = var.instance_schedulers
+}
+
 module "autoscaling_group" {
   source             = "./modules/aws/auto-scaling-group"
   count              = length(var.autoscaling_groups) > 0 ? 1 : 0
@@ -201,4 +223,31 @@ module "autoscaling_group" {
   subnets            = module.subnet.subnet_ids
   keypairs           = module.keypairs.key_pair_names
   vpc_ids            = local.vpc_ids
+}
+
+module "secrets_manager" {
+  count                   = length(var.secrets_manager_secrets) > 0 ? 1 : 0
+  source                  = "./modules/aws/secrets-manager"
+  tags                    = local.tags
+  secrets_manager_secrets = var.secrets_manager_secrets
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# REGLAS CROSS-SG — ingress entre security groups del mismo mapa
+# Se crean tras el módulo security_group para evitar dependencia circular.
+# ──────────────────────────────────────────────────────────────────────────────
+resource "aws_vpc_security_group_ingress_rule" "cross_sg" {
+  for_each = var.security_group_rules
+
+  security_group_id            = module.security_group.security_group_ids[each.value.sg_name]
+  referenced_security_group_id = each.value.source_sg_name != null ? module.security_group.security_group_ids[each.value.source_sg_name] : null
+  cidr_ipv4                    = each.value.cidr_ipv4
+
+  from_port   = each.value.from_port >= 0 ? each.value.from_port : null
+  to_port     = each.value.to_port >= 0 ? each.value.to_port : null
+  ip_protocol = each.value.ip_protocol
+
+  description = each.value.description
+
+  tags = merge(local.tags, { Name = each.key })
 }

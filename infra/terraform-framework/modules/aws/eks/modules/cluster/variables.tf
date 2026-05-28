@@ -114,3 +114,4 @@ variable "cluster_tags" {
   type    = map(string)
   default = {}
 }
+
