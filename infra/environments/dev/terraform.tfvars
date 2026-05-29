@@ -1,4 +1,4 @@
-terraform_framework_version = "v1.0.7"
+terraform_framework_version = "v1.0.8"
 
 # account_id se inyecta como TF_VAR_account_id desde GitHub Secret
 # deploy: 2026-05-29 r2
