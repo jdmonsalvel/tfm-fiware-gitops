@@ -50,24 +50,43 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Read framework version
+      - name: Read framework version from tfvars
         id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION=$(cat infra/environments/${{ matrix.env }}/framework.version | tr -d '[:space:]')
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Deploying with tfm-terraform-framework $VERSION"
+          TFVARS="infra/environments/${{ matrix.env }}/terraform.tfvars"
 
-      - name: Clone framework at pinned version
+          # Extraer terraform_framework_version del tfvars
+          RAW=$(grep -E '^\s*terraform_framework_version\s*=' "$TFVARS" \
+            | head -1 \
+            | sed 's/.*=\s*//; s/[" ]//g; s/#.*//' \
+            || true)
+
+          if [ -z "$RAW" ] || [ "$RAW" = "null" ]; then
+            echo "terraform_framework_version no definido en tfvars — usando latest release"
+            VERSION=$(gh release view \
+              --repo jdmonsalvel/tfm-terraform-framework \
+              --json tagName -q '.tagName')
+          else
+            VERSION="$RAW"
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Framework version: $VERSION"
+
+      - name: Clone framework at resolved version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git clone \
             --branch ${{ steps.version.outputs.version }} \
             --depth 1 \
-            https://github.com/jdmonsalvel/tfm-terraform-framework.git \
+            https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/jdmonsalvel/tfm-terraform-framework.git \
             /tmp/framework
 
       - name: Copy environment backend config
-        run: |
-          cp infra/environments/${{ matrix.env }}/backend.tf /tmp/framework/
+        run: cp infra/environments/${{ matrix.env }}/backend.tf /tmp/framework/
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -100,7 +119,7 @@ jobs:
           TF_VAR_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
         run: terraform apply tfplan
 
-      - name: Show outputs
+      - name: Show outputs (incluye framework_version)
         if: always()
         working-directory: /tmp/framework
         run: terraform output -json 2>/dev/null || true

@@ -1,3 +1,5 @@
+terraform_framework_version = "v1.0.0"
+
 # account_id se inyecta como TF_VAR_account_id desde GitHub Secret
 region      = "eu-west-1"
 project     = "tfm-fiware-gitops"
