@@ -1,7 +1,8 @@
-terraform_framework_version = "v1.0.11"
+terraform_framework_version = "v1.0.12"
 
 # account_id se inyecta como TF_VAR_account_id desde GitHub Secret
-# deploy: 2026-05-29 r2
+# devops_service_account_id: no definido → single-cuenta (state en la misma cuenta)
+# deploy: 2026-05-29 r3
 region      = "eu-west-1"
 project     = "tfm"
 environment = "dev"

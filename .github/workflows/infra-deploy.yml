@@ -83,9 +83,6 @@ jobs:
             https://github.com/jdmonsalvel/tfm-terraform-framework.git \
             /tmp/framework
 
-      - name: Copy environment backend config
-        run: cp infra/environments/${{ matrix.env }}/backend.tf /tmp/framework/
-
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -94,13 +91,17 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::101490102336:role/github-actions-terraform-role
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-terraform-role
           aws-region: eu-west-1
           role-session-name: infra-deploy-${{ matrix.env }}
 
-      - name: Terraform Init
+      - name: Setup backend and terraform init
         working-directory: /tmp/framework
-        run: terraform init
+        env:
+          TF_VAR_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
+        run: |
+          bash backend-setup.sh \
+            "${{ github.workspace }}/infra/environments/${{ matrix.env }}/terraform.tfvars"
 
       - name: Terraform Plan
         working-directory: /tmp/framework
