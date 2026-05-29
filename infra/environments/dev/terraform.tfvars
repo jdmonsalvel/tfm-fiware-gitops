@@ -3,7 +3,7 @@ terraform_framework_version = "v1.0.6"
 # account_id se inyecta como TF_VAR_account_id desde GitHub Secret
 # deploy: 2026-05-29 r2
 region      = "eu-west-1"
-project     = "tfm-fiware-gitops"
+project     = "tfm"
 environment = "dev"
 accountable = "jdmonsalvel"
 
@@ -332,7 +332,7 @@ eks = {
     }
 
     cluster = {
-      kubernetes_version = "1.33"
+      kubernetes_version = "1.34"
       deletion_protection = false
     }
 
