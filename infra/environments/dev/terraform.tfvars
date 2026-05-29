@@ -1,4 +1,4 @@
-terraform_framework_version = "v1.0.6"
+terraform_framework_version = "v1.0.7"
 
 # account_id se inyecta como TF_VAR_account_id desde GitHub Secret
 # deploy: 2026-05-29 r2
@@ -325,14 +325,14 @@ eks_backend_region = "eu-west-1"
 eks = {
   fiware-gitops = {
     network = {
-      vpc_name             = "fiware-vpc"
-      subnet_names         = ["subnet-app-1a", "subnet-app-1b", "subnet-app-1c"]
-      endpoint_public_access  = false
+      vpc_name                = "fiware-vpc"
+      subnet_names            = ["subnet-app-1a", "subnet-app-1b", "subnet-app-1c"]
+      endpoint_public_access  = true
       endpoint_private_access = true
     }
 
     cluster = {
-      kubernetes_version = "1.34"
+      kubernetes_version  = "1.34"
       deletion_protection = false
     }
 
@@ -345,11 +345,11 @@ eks = {
     node_groups = {
       workload_node_groups = {
         fiware = {
-          instance_types = ["t3.xlarge"]
+          instance_types = ["t3.large"]
           capacity_type  = "SPOT"
-          min_size       = 2
-          max_size       = 4
-          desired_size   = 3
+          min_size       = 1
+          max_size       = 3
+          desired_size   = 2
           disk_size      = 50
           labels         = { workload = "fiware" }
         }
