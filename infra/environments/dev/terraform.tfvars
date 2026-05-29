@@ -316,23 +316,45 @@ iam_roles = {
   }
 }
 
-# ─── EKS (descomentar en Fase 2) ─────────────────────────────────────────────
+# ─── EKS ─────────────────────────────────────────────────────────────────────
 
-# eks = {
-#   fiware-gitops = {
-#     name       = "fiware-gitops"
-#     version    = "1.29"
-#     vpc_name   = "fiware-vpc"
-#     subnet_names = ["subnet-app-1a", "subnet-app-1b", "subnet-app-1c"]
-#     node_groups = {
-#       fiware = {
-#         name           = "fiware"
-#         instance_types = ["t3.xlarge"]
-#         min_size       = 2
-#         max_size       = 4
-#         desired_size   = 3
-#         capacity_type  = "SPOT"
-#       }
-#     }
-#   }
-# }
+eks_backend_bucket = "devops-101490102336-terraform-state-bucket"
+eks_backend_region = "eu-west-1"
+
+eks = {
+  fiware-gitops = {
+    network = {
+      vpc_name             = "fiware-vpc"
+      subnet_names         = ["subnet-app-1a", "subnet-app-1b", "subnet-app-1c"]
+      endpoint_public_access  = false
+      endpoint_private_access = true
+    }
+
+    cluster = {
+      kubernetes_version = "1.29"
+      deletion_protection = false
+    }
+
+    auth = {
+      admins = {
+        principal_arns = ["arn:aws:iam::101490102336:user/jdmonsalvel"]
+      }
+    }
+
+    node_groups = {
+      workload_node_groups = {
+        fiware = {
+          instance_types = ["t3.xlarge"]
+          capacity_type  = "SPOT"
+          min_size       = 2
+          max_size       = 4
+          desired_size   = 3
+          disk_size      = 50
+          labels         = { workload = "fiware" }
+        }
+      }
+    }
+
+    tags = { Component = "eks" }
+  }
+}
