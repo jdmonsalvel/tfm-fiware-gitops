@@ -1,4 +1,4 @@
-terraform_framework_version = "v1.0.5"
+terraform_framework_version = "v1.0.6"
 
 # account_id se inyecta como TF_VAR_account_id desde GitHub Secret
 # deploy: 2026-05-29 r2
@@ -332,7 +332,7 @@ eks = {
     }
 
     cluster = {
-      kubernetes_version = "1.32"
+      kubernetes_version = "1.31"
       deletion_protection = false
     }
 
