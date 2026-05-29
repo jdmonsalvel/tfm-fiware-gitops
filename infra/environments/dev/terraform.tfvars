@@ -1,4 +1,4 @@
-terraform_framework_version = "v1.0.8"
+terraform_framework_version = "v1.0.9"
 
 # account_id se inyecta como TF_VAR_account_id desde GitHub Secret
 # deploy: 2026-05-29 r2
@@ -342,7 +342,7 @@ eks = {
       }
     }
 
-    node_groups = {
+    compute = {
       workload_node_groups = {
         fiware = {
           instance_types = ["t3.large"]
