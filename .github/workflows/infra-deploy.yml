@@ -76,13 +76,11 @@ jobs:
           echo "Framework version: $VERSION"
 
       - name: Clone framework at resolved version
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git clone \
             --branch ${{ steps.version.outputs.version }} \
             --depth 1 \
-            https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/jdmonsalvel/tfm-terraform-framework.git \
+            https://github.com/jdmonsalvel/tfm-terraform-framework.git \
             /tmp/framework
 
       - name: Copy environment backend config
