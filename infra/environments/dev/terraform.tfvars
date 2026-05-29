@@ -1,7 +1,7 @@
 terraform_framework_version = "v1.0.0"
 
 # account_id se inyecta como TF_VAR_account_id desde GitHub Secret
-# deploy: 2026-05-29
+# deploy: 2026-05-29 r2
 region      = "eu-west-1"
 project     = "tfm-fiware-gitops"
 environment = "dev"
