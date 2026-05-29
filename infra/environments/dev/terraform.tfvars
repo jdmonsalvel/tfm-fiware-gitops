@@ -207,7 +207,7 @@ security_groups = {
   data-sg = {
     name        = "data-sg"
     vpc_name    = "fiware-vpc"
-    description = "Bases de datos — acceso solo desde nodos EKS"
+    description = "Bases de datos - acceso solo desde nodos EKS"
     ingress = {
       mongodb = { from_port = 27017, to_port = 27017, protocol = "tcp", cidr_blocks = ["10.0.0.0/16"] }
       mysql   = { from_port = 3306, to_port = 3306, protocol = "tcp", cidr_blocks = ["10.0.0.0/16"] }
@@ -249,8 +249,8 @@ route53_zones = {
 
 acm_certificates = {
   wildcard-lab = {
-    domain_name               = "*.lab-jdmonsalvel.com"
-    subject_alternative_names = ["lab-jdmonsalvel.com"]
+    domain_name               = "lab-jdmonsalvel.com"
+    subject_alternative_names = ["*.lab-jdmonsalvel.com"]
     validation_method         = "DNS"
     zone_name                 = "lab-jdmonsalvel.com"
     tags                      = { Environment = "dev" }
@@ -332,7 +332,7 @@ eks = {
     }
 
     cluster = {
-      kubernetes_version = "1.29"
+      kubernetes_version = "1.32"
       deletion_protection = false
     }
 
