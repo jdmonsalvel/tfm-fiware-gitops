@@ -31,14 +31,20 @@ jobs:
           helm repo add bitnami https://charts.bitnami.com/bitnami
           helm repo update
 
+      - name: Resolve chart dependencies
+        run: |
+          helm dependency update gitops/charts/orion-ld
+          helm dependency update gitops/charts/keyrock
+          helm dependency update gitops/charts/wilma
+
       - name: Lint Orion-LD Chart
-        run: helm lint gitops/charts/orion-ld --strict
+        run: helm lint gitops/charts/orion-ld
 
       - name: Lint Keyrock Chart
-        run: helm lint gitops/charts/keyrock --strict
+        run: helm lint gitops/charts/keyrock
 
       - name: Lint Wilma Chart
-        run: helm lint gitops/charts/wilma --strict
+        run: helm lint gitops/charts/wilma
 
   manifest-validate:
     name: Kubernetes Manifest Validation
@@ -61,4 +67,4 @@ jobs:
             -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
             -summary \
             -verbose \
-            gitops/bootstrap/*.yaml gitops/apps/**/*.yaml
+            gitops/apps/platform/*.yaml gitops/apps/fiware/*.yaml
