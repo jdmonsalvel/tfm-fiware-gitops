@@ -332,7 +332,7 @@ eks = {
     }
 
     cluster = {
-      kubernetes_version = "1.31"
+      kubernetes_version = "1.33"
       deletion_protection = false
     }
 
