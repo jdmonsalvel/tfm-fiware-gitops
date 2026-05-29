@@ -1,4 +1,4 @@
-terraform_framework_version = "v1.0.9"
+terraform_framework_version = "v1.0.10"
 
 # account_id se inyecta como TF_VAR_account_id desde GitHub Secret
 # deploy: 2026-05-29 r2
@@ -338,7 +338,7 @@ eks = {
 
     auth = {
       admins = {
-        principal_arns = ["arn:aws:iam::101490102336:user/jdmonsalvel"]
+        usernames = ["jdmonsalvel"]
       }
     }
 
