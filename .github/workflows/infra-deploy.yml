@@ -1,0 +1,106 @@
+name: Infra Deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'infra/environments/**'
+
+permissions:
+  contents: read
+  id-token: write   # OIDC → AWS AssumeRoleWithWebIdentity
+
+jobs:
+  detect:
+    name: Detect changed environments
+    runs-on: ubuntu-latest
+    outputs:
+      envs: ${{ steps.changed.outputs.envs }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed environments
+        id: changed
+        run: |
+          CHANGED=$(git diff --name-only HEAD~1 HEAD \
+            | grep '^infra/environments/' \
+            | sed 's|infra/environments/||' \
+            | cut -d'/' -f1 \
+            | sort -u \
+            | jq -R . | jq -sc .)
+          echo "envs=$CHANGED" >> "$GITHUB_OUTPUT"
+          echo "Environments with changes: $CHANGED"
+
+  deploy:
+    name: Deploy ${{ matrix.env }}
+    needs: detect
+    if: needs.detect.outputs.envs != '[]'
+    runs-on: ubuntu-latest
+    environment: aws-lab        # aprobación manual obligatoria
+    strategy:
+      matrix:
+        env: ${{ fromJson(needs.detect.outputs.envs) }}
+      max-parallel: 1           # un entorno a la vez — evita conflictos de state
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read framework version
+        id: version
+        run: |
+          VERSION=$(cat infra/environments/${{ matrix.env }}/framework.version | tr -d '[:space:]')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Deploying with tfm-terraform-framework $VERSION"
+
+      - name: Clone framework at pinned version
+        run: |
+          git clone \
+            --branch ${{ steps.version.outputs.version }} \
+            --depth 1 \
+            https://github.com/jdmonsalvel/tfm-terraform-framework.git \
+            /tmp/framework
+
+      - name: Copy environment backend config
+        run: |
+          cp infra/environments/${{ matrix.env }}/backend.tf /tmp/framework/
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.7"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::101490102336:role/github-actions-terraform-role
+          aws-region: eu-west-1
+          role-session-name: infra-deploy-${{ matrix.env }}
+
+      - name: Terraform Init
+        working-directory: /tmp/framework
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: /tmp/framework
+        env:
+          TF_VAR_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
+        run: |
+          terraform plan \
+            -var-file="${{ github.workspace }}/infra/environments/${{ matrix.env }}/terraform.tfvars" \
+            -out=tfplan
+
+      - name: Terraform Apply
+        working-directory: /tmp/framework
+        env:
+          TF_VAR_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
+        run: terraform apply tfplan
+
+      - name: Show outputs
+        if: always()
+        working-directory: /tmp/framework
+        run: terraform output -json 2>/dev/null || true

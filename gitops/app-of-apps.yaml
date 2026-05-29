@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: https://github.com/jdmonsalvel/tfm-fiware-gitops
     targetRevision: HEAD
-    path: gitops/apps/applications
+    path: gitops/apps
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd

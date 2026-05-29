@@ -4,7 +4,7 @@
 *.tfstate.*
 *.tfvars
 !*.tfvars.example
-!infra/terraform-framework/variables/template.tfvars
+!infra/environments/**/terraform.tfvars
 tfplan
 *.tfplan
 .terraform.lock.hcl
