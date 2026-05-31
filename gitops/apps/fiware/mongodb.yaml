@@ -17,7 +17,10 @@ spec:
       values: |
         fullnameOverride: mongodb
         image:
-          tag: "7.0.14-debian-12-r0"
+          registry: docker.io
+          repository: mongo
+          tag: "7.0"
+          pullPolicy: IfNotPresent
         auth:
           enabled: false
         persistence:
