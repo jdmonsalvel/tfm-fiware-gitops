@@ -360,3 +360,48 @@ eks = {
     tags = { Component = "eks" }
   }
 }
+
+# ─── Cloudflare DNS ───────────────────────────────────────────────────────────
+# cloudflare_api_token se inyecta como TF_VAR_cloudflare_api_token desde CI secret
+
+cloudflare_zone_id = "ff56625e37640672741d858cdc27e6c6"
+
+# Los CNAMEs al NLB se actualizan con el hostname real tras desplegar ingress-nginx.
+# Ejecutar: bash scripts/setup-dns.sh  (post-bootstrap)
+cloudflare_records = {
+  keyrock = {
+    name    = "keyrock"
+    type    = "CNAME"
+    value   = "PLACEHOLDER_NLB_HOSTNAME"
+    proxied = false
+    comment = "Keyrock IdP — Trust Anchor"
+  }
+  orion = {
+    name    = "orion"
+    type    = "CNAME"
+    value   = "PLACEHOLDER_NLB_HOSTNAME"
+    proxied = false
+    comment = "Orion-LD Context Broker"
+  }
+  til = {
+    name    = "til"
+    type    = "CNAME"
+    value   = "PLACEHOLDER_NLB_HOSTNAME"
+    proxied = false
+    comment = "Trusted Issuers List"
+  }
+  tir = {
+    name    = "tir"
+    type    = "CNAME"
+    value   = "PLACEHOLDER_NLB_HOSTNAME"
+    proxied = false
+    comment = "Trusted Issuers Registry"
+  }
+  ccs = {
+    name    = "ccs"
+    type    = "CNAME"
+    value   = "PLACEHOLDER_NLB_HOSTNAME"
+    proxied = false
+    comment = "Credentials Config Service"
+  }
+}

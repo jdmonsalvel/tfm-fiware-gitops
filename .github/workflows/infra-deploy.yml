@@ -110,6 +110,7 @@ jobs:
         working-directory: /tmp/framework
         env:
           TF_VAR_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
+          TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           bash backend-setup.sh \
             "${{ github.workspace }}/infra/environments/${{ matrix.env }}/terraform.tfvars"
@@ -118,6 +119,7 @@ jobs:
         working-directory: /tmp/framework
         env:
           TF_VAR_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
+          TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           terraform plan \
             -var-file="${{ github.workspace }}/infra/environments/${{ matrix.env }}/terraform.tfvars" \
@@ -127,12 +129,14 @@ jobs:
         working-directory: /tmp/framework
         env:
           TF_VAR_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
+          TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: terraform apply tfplan
 
       - name: Post-apply — inyectar ARNs IRSA y crear secretos
         working-directory: /tmp/framework
         env:
           TF_VAR_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
+          TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           bash "${{ github.workspace }}/scripts/post-apply.sh" \
             "${{ github.workspace }}" \
