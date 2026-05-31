@@ -8,7 +8,7 @@ on:
       - 'infra/environments/**'
 
 permissions:
-  contents: read
+  contents: write   # post-apply push de valores IRSA actualizados
   id-token: write   # OIDC → AWS AssumeRoleWithWebIdentity
 
 jobs:
@@ -118,7 +118,16 @@ jobs:
           TF_VAR_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
         run: terraform apply tfplan
 
-      - name: Show outputs (incluye framework_version)
+      - name: Post-apply — inyectar ARNs IRSA y crear secretos
+        working-directory: /tmp/framework
+        env:
+          TF_VAR_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
+        run: |
+          bash "${{ github.workspace }}/scripts/post-apply.sh" \
+            "${{ github.workspace }}" \
+            "eu-west-1"
+
+      - name: Show outputs
         if: always()
         working-directory: /tmp/framework
         run: terraform output -json 2>/dev/null || true

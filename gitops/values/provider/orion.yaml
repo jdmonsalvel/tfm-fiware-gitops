@@ -12,11 +12,15 @@ ingress:
   enabled: true
   annotations:
     kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
   hosts:
-    - host: orion.127.0.0.1.nip.io
+    - host: orion.lab-jdmonsalvel.com
       paths:
         - /
-  tls: []
+  tls:
+    - secretName: orion-tls
+      hosts:
+        - orion.lab-jdmonsalvel.com
 
 deployment:
   resources:

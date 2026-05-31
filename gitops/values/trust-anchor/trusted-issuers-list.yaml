@@ -1,6 +1,4 @@
 # Trusted Issuers List — registro de emisores de Verifiable Credentials
-# H2 in-memory para demo local (sin persistencia)
-# En AWS: persistence: true + MySQL/Postgres externo
 database:
   persistence: false
 
@@ -8,15 +6,25 @@ ingress:
   til:
     enabled: true
     className: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
     hosts:
-      - host: til.127.0.0.1.nip.io
-    tls: []
+      - host: til.lab-jdmonsalvel.com
+    tls:
+      - secretName: til-tls
+        hosts:
+          - til.lab-jdmonsalvel.com
   tir:
     enabled: true
     className: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
     hosts:
-      - host: tir.127.0.0.1.nip.io
-    tls: []
+      - host: tir.lab-jdmonsalvel.com
+    tls:
+      - secretName: tir-tls
+        hosts:
+          - tir.lab-jdmonsalvel.com
 
 deployment:
   resources:
