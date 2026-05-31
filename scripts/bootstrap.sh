@@ -1,57 +1,45 @@
 #!/usr/bin/env bash
+# bootstrap.sh — Instala ArgoCD y despliega el App of Apps en el clúster EKS.
+# Prerrequisito: kubectl configurado con acceso al clúster.
+
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(dirname "$SCRIPT_DIR")"
-
-log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+log() { echo "[$(date '+%H:%M:%S')] $*"; }
 err() { echo "[ERROR] $*" >&2; exit 1; }
 
-command -v terraform &>/dev/null || err "terraform not found"
-command -v kubectl   &>/dev/null || err "kubectl not found"
-command -v helm      &>/dev/null || err "helm not found"
-command -v aws       &>/dev/null || err "aws-cli not found"
+command -v kubectl &>/dev/null || err "kubectl no encontrado"
+command -v helm    &>/dev/null || err "helm no encontrado"
 
-AWS_REGION="${AWS_REGION:-eu-west-1}"
-TF_DIR="${REPO_ROOT}/infrastructure/terraform"
+# ─── Verificar conectividad al clúster ────────────────────────────────────────
+log "Verificando conexión al clúster..."
+kubectl cluster-info --request-timeout=10s > /dev/null 2>&1 || err "kubectl no puede conectar al clúster. Ejecuta: aws eks update-kubeconfig --name tfm-dev-fiware-gitops --region eu-west-1"
 
-log "=== FASE 1: Terraform — VPC + EKS ==="
-cd "$TF_DIR"
-terraform init \
-  -backend-config="region=${AWS_REGION}"
-terraform apply -auto-approve -var="aws_region=${AWS_REGION}"
+# ─── Instalar ArgoCD ──────────────────────────────────────────────────────────
+log "Instalando ArgoCD..."
+helm repo add argo https://argoproj.github.io/argo-helm 2>/dev/null || true
+helm repo update argo
 
-CLUSTER_NAME=$(terraform output -raw cluster_name)
-log "Cluster creado: ${CLUSTER_NAME}"
-
-log "=== Configurando kubectl ==="
-aws eks update-kubeconfig --region "${AWS_REGION}" --name "${CLUSTER_NAME}"
-kubectl cluster-info
-
-log "=== FASE 2: Bootstrap namespaces ==="
-kubectl apply -f "${REPO_ROOT}/gitops/bootstrap/argocd-namespace.yaml"
-
-log "=== FASE 3: Instalando ArgoCD ==="
-helm repo add argo https://argoproj.github.io/argo-helm
-helm repo update
 helm upgrade --install argocd argo/argo-cd \
   --namespace argocd \
-  --version '7.*.*' \
-  --wait --timeout 10m
+  --create-namespace \
+  --version "7.*" \
+  --set server.service.type=ClusterIP \
+  --wait --timeout 8m
 
-log "Esperando a que ArgoCD esté listo..."
+log "Esperando deployment argocd-server..."
 kubectl wait --for=condition=available deployment/argocd-server \
   --namespace argocd --timeout=300s
 
-log "=== FASE 4: Desplegando App of Apps ==="
-EXTERNAL_SECRETS_ROLE_ARN=$(cd "$TF_DIR" && terraform output -raw external_secrets_role_arn)
-sed -i "s|PLACEHOLDER_EXTERNAL_SECRETS_ROLE_ARN|${EXTERNAL_SECRETS_ROLE_ARN}|g" \
-  "${REPO_ROOT}/gitops/apps/external-secrets/application.yaml"
-
-kubectl apply -f "${REPO_ROOT}/gitops/bootstrap/app-of-apps.yaml"
+# ─── App of Apps ──────────────────────────────────────────────────────────────
+log "Aplicando App of Apps..."
+kubectl apply -f "${REPO_ROOT}/gitops/app-of-apps.yaml"
 
 log "=== Bootstrap completado ==="
-log "ArgoCD UI: kubectl port-forward svc/argocd-server -n argocd 8080:443"
-ARGOCD_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret \
-  -o jsonpath="{.data.password}" | base64 -d)
-log "ArgoCD admin password: ${ARGOCD_PASSWORD}"
+echo ""
+echo "  ArgoCD UI (local):   kubectl port-forward svc/argocd-server -n argocd 8080:443"
+echo "  URL:                 https://localhost:8080"
+echo "  Usuario:             admin"
+echo "  Password:            $(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || echo 'ver: kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath={.data.password} | base64 -d')"
+echo ""
+echo "  Sigue la sincronización: kubectl get applications -n argocd -w"
