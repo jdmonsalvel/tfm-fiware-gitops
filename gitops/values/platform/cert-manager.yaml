@@ -3,6 +3,6 @@
 installCRDs: true
 serviceAccount:
   annotations:
-    eks.amazonaws.com/role-arn: "PLACEHOLDER_CERT_MANAGER_ROLE_ARN"
+    eks.amazonaws.com/role-arn: "arn:aws:iam::575124957370:role/tfm-dev-fiware-gitops-irsa-cert-manager"
 prometheus:
   enabled: false
