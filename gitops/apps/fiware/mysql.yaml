@@ -9,16 +9,29 @@ metadata:
     - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
-  sources:
-    - repoURL: registry-1.docker.io/bitnamicharts
-      chart: mysql
-      targetRevision: "11.*"
-      helm:
-        valueFiles:
-          - $values/gitops/values/trust-anchor/mysql.yaml
-    - repoURL: https://github.com/jdmonsalvel/tfm-fiware-gitops
-      targetRevision: HEAD
-      ref: values
+  source:
+    repoURL: https://charts.bitnami.com/bitnami
+    chart: mysql
+    targetRevision: "9.23.0"
+    helm:
+      values: |
+        fullnameOverride: mysql
+        image:
+          tag: "8.0.39-debian-12-r0"
+        auth:
+          existingSecret: mysql-credentials
+          database: idm
+          username: keyrock
+        primary:
+          persistence:
+            enabled: false
+          resources:
+            requests:
+              memory: 256Mi
+              cpu: 100m
+            limits:
+              memory: 512Mi
+              cpu: 500m
   destination:
     server: https://kubernetes.default.svc
     namespace: trust-anchor

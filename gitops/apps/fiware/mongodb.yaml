@@ -9,16 +9,26 @@ metadata:
     - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
-  sources:
-    - repoURL: registry-1.docker.io/bitnamicharts
-      chart: mongodb
-      targetRevision: "16.*"
-      helm:
-        valueFiles:
-          - $values/gitops/values/provider/mongodb.yaml
-    - repoURL: https://github.com/jdmonsalvel/tfm-fiware-gitops
-      targetRevision: HEAD
-      ref: values
+  source:
+    repoURL: https://charts.bitnami.com/bitnami
+    chart: mongodb
+    targetRevision: "14.12.0"
+    helm:
+      values: |
+        fullnameOverride: mongodb
+        image:
+          tag: "7.0.14-debian-12-r0"
+        auth:
+          enabled: false
+        persistence:
+          enabled: false
+        resources:
+          requests:
+            memory: 256Mi
+            cpu: 100m
+          limits:
+            memory: 512Mi
+            cpu: 500m
   destination:
     server: https://kubernetes.default.svc
     namespace: provider
