@@ -1,4 +1,4 @@
-terraform_framework_version = "v1.0.13"
+terraform_framework_version = "v1.0.17"
 
 # account_id se inyecta como TF_VAR_account_id desde GitHub Secret
 # devops_service_account_id: no definido → single-cuenta (state en la misma cuenta)
@@ -103,20 +103,20 @@ network_acls = {
       inbound_all = {
         rule_number = 100
         type        = "inbound"
-        protocol    = "tcp"
+        protocol    = "-1"
         rule_action = "allow"
         cidr_block  = "0.0.0.0/0"
         from_port   = 0
-        to_port     = 65535
+        to_port     = 0
       }
       outbound_all = {
         rule_number = 100
         type        = "outbound"
-        protocol    = "tcp"
+        protocol    = "-1"
         rule_action = "allow"
         cidr_block  = "0.0.0.0/0"
         from_port   = 0
-        to_port     = 65535
+        to_port     = 0
       }
     }
   }
@@ -181,12 +181,12 @@ security_groups = {
     vpc_name    = "fiware-vpc"
     description = "EKS worker nodes"
     ingress = {
-      vpc_internal = {
-        from_port   = 1025
-        to_port     = 65535
-        protocol    = "tcp"
+      vpc_all = {
+        from_port   = 0
+        to_port     = 0
+        protocol    = "-1"
         cidr_blocks = ["10.0.0.0/16"]
-        description = "Trafico interno VPC"
+        description = "All VPC traffic - required for DNS UDP and pod networking"
       }
     }
     egress = {
