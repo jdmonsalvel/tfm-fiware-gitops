@@ -28,10 +28,14 @@ fi
 
 log_info "Leyendo ARNs desde $BOOTSTRAP_JSON..."
 ESO_ARN=$(python3 -c "
-import json, sys
-with open('$BOOTSTRAP_JSON') as f:
-    data = json.load(f)
+import json
+data = json.load(open('$BOOTSTRAP_JSON'))
 print(data.get('irsa_roles', {}).get('external_secrets', ''))
+")
+CERT_MANAGER_ARN=$(python3 -c "
+import json
+data = json.load(open('$BOOTSTRAP_JSON'))
+print(data.get('irsa_roles', {}).get('cert_manager', ''))
 ")
 
 if [ -z "$ESO_ARN" ] || [ "$ESO_ARN" = "None" ]; then
@@ -42,10 +46,15 @@ fi
 
 log_info "ESO IRSA ARN: $ESO_ARN"
 
-# ─── Actualizar values file de external-secrets ───────────────────────────────
+# ─── Actualizar values files con ARNs IRSA reales ────────────────────────────
 ESO_VALUES="$GITOPS_ROOT/gitops/values/platform/external-secrets.yaml"
-log_info "Actualizando $ESO_VALUES..."
-sed -i "s|PLACEHOLDER_EXTERNAL_SECRETS_ROLE_ARN|${ESO_ARN}|g" "$ESO_VALUES"
+CERT_VALUES="$GITOPS_ROOT/gitops/values/platform/cert-manager.yaml"
+
+log_info "Actualizando IRSA ARNs en values files..."
+sed -i "s|PLACEHOLDER_EXTERNAL_SECRETS_ROLE_ARN|${ESO_ARN}|g"   "$ESO_VALUES"
+sed -i "s|PLACEHOLDER_CERT_MANAGER_ROLE_ARN|${CERT_MANAGER_ARN}|g" "$CERT_VALUES"
+log_info "  ESO:          $ESO_ARN"
+log_info "  cert-manager: $CERT_MANAGER_ARN"
 
 # ─── Crear secretos en Secrets Manager si no existen ─────────────────────────
 log_info "Verificando secretos en Secrets Manager ($REGION)..."
@@ -75,7 +84,7 @@ log_info "Committing updated IRSA ARN..."
 cd "$GITOPS_ROOT"
 git config user.email "ci@github.com"
 git config user.name "GitHub Actions"
-git add gitops/values/platform/external-secrets.yaml
+git add gitops/values/platform/external-secrets.yaml gitops/values/platform/cert-manager.yaml
 if git diff --cached --quiet; then
     log_info "Sin cambios (ARN ya actualizado)."
 else

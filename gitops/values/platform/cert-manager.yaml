@@ -1,0 +1,8 @@
+# cert-manager — valores para IRSA (Route53 DNS-01)
+# CERT_MANAGER_ROLE_ARN se actualiza por scripts/post-apply.sh
+installCRDs: true
+serviceAccount:
+  annotations:
+    eks.amazonaws.com/role-arn: "PLACEHOLDER_CERT_MANAGER_ROLE_ARN"
+prometheus:
+  enabled: false

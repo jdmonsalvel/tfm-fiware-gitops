@@ -1,8 +1,8 @@
-terraform_framework_version = "v1.0.12"
+terraform_framework_version = "v1.0.13"
 
 # account_id se inyecta como TF_VAR_account_id desde GitHub Secret
 # devops_service_account_id: no definido → single-cuenta (state en la misma cuenta)
-# deploy: 2026-05-31 r1
+# deploy: 2026-05-31 r2
 region      = "eu-west-1"
 project     = "tfm"
 environment = "dev"
@@ -346,12 +346,12 @@ eks = {
     compute = {
       workload_node_groups = {
         fiware = {
-          instance_types = ["t3.large"]
+          instance_types = ["t3.medium", "t3a.medium"]
           capacity_type  = "SPOT"
           min_size       = 1
-          max_size       = 3
+          max_size       = 2
           desired_size   = 2
-          disk_size      = 50
+          disk_size      = 20
           labels         = { workload = "fiware" }
         }
       }
