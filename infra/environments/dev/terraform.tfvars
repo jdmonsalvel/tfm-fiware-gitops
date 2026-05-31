@@ -2,7 +2,7 @@ terraform_framework_version = "v1.0.12"
 
 # account_id se inyecta como TF_VAR_account_id desde GitHub Secret
 # devops_service_account_id: no definido → single-cuenta (state en la misma cuenta)
-# deploy: 2026-05-29 r3
+# deploy: 2026-05-31 r1
 region      = "eu-west-1"
 project     = "tfm"
 environment = "dev"
@@ -225,13 +225,13 @@ security_groups = {
 
 s3_buckets = {
   fiware-velero-backups = {
-    name          = "fiware-velero-backups-101490102336"
+    name          = "fiware-velero-backups-575124957370"
     force_destroy = true
     versioning    = true
     tags          = { Purpose = "velero-backups" }
   }
   fiware-loki-logs = {
-    name          = "fiware-loki-logs-101490102336"
+    name          = "fiware-loki-logs-575124957370"
     force_destroy = true
     versioning    = false
     tags          = { Purpose = "loki-logs" }
@@ -301,7 +301,7 @@ iam_roles = {
       {
         effect               = "Allow"
         actions              = ["sts:AssumeRoleWithWebIdentity"]
-        federated_principals = ["arn:aws:iam::101490102336:oidc-provider/token.actions.githubusercontent.com"]
+        federated_principals = ["arn:aws:iam::575124957370:oidc-provider/token.actions.githubusercontent.com"]
         conditions = {
           "StringLike"   = { "token.actions.githubusercontent.com:sub" = ["repo:jdmonsalvel/tfm-fiware-gitops:*"] }
           "StringEquals" = { "token.actions.githubusercontent.com:aud" = ["sts.amazonaws.com"] }
@@ -310,7 +310,7 @@ iam_roles = {
       {
         effect         = "Allow"
         actions        = ["sts:AssumeRole"]
-        aws_principals = ["arn:aws:iam::101490102336:user/jdmonsalvel"]
+        aws_principals = ["arn:aws:iam::575124957370:user/jdmonsalvel"]
         conditions     = {}
       }
     ]
@@ -320,7 +320,7 @@ iam_roles = {
 
 # ─── EKS ─────────────────────────────────────────────────────────────────────
 
-eks_backend_bucket = "devops-101490102336-terraform-state-bucket"
+eks_backend_bucket = "devops-575124957370-terraform-state-bucket"
 eks_backend_region = "eu-west-1"
 
 eks = {
