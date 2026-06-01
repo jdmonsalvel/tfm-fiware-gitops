@@ -4,7 +4,7 @@ broker:
   port: 1026
   db:
     hosts:
-      - mongodb
+      - fiware-orion-mongo
     name: orion
     mongocOnly: true
 
