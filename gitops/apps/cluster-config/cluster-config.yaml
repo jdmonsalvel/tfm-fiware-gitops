@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: external-secrets-config
+  name: cluster-config
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
@@ -10,13 +10,14 @@ spec:
   source:
     repoURL: https://github.com/jdmonsalvel/tfm-fiware-gitops
     targetRevision: HEAD
-    path: gitops/external-secrets
+    path: gitops/cluster-config
   destination:
     server: https://kubernetes.default.svc
-    namespace: trust-anchor
+    namespace: cert-manager
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      - ServerSideApply=true
