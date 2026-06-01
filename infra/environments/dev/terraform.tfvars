@@ -357,6 +357,16 @@ eks = {
       }
     }
 
+    # ─── Scheduler de nodos ──────────────────────────────────────────────────
+    # Apaga los nodos de 22:00 UTC (00:00 CEST) a 14:00 UTC (16:00 CEST).
+    # Para disparar manualmente: aws lambda invoke --function-name tfm-dev-fiware-gitops-node-scheduler
+    #   --payload '{"action":"scale_up"}' /dev/stdout
+    node_scheduler = {
+      enabled             = true
+      scale_down_cron_utc = "0 22 * * ? *"
+      scale_up_cron_utc   = "0 14 * * ? *"
+    }
+
     tags = { Component = "eks" }
   }
 }
