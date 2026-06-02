@@ -12,7 +12,7 @@ spec:
   sources:
     - repoURL: https://charts.bitnami.com/bitnami
       chart: kong
-      targetRevision: "15.4.*"
+      targetRevision: "15.4.22"
       helm:
         valueFiles:
           - $values/gitops/values/provider/kong.yaml
