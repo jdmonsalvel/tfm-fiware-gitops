@@ -382,35 +382,35 @@ cloudflare_records = {
   keyrock = {
     name    = "keyrock"
     type    = "CNAME"
-    value   = "PLACEHOLDER_NLB_HOSTNAME"
+    value   = "k8s-platform-ingressn-ece0809a4c-00425d7cb902dbca.elb.eu-west-1.amazonaws.com"
     proxied = false
     comment = "Keyrock IdP — Trust Anchor"
   }
   orion = {
     name    = "orion"
     type    = "CNAME"
-    value   = "PLACEHOLDER_NLB_HOSTNAME"
+    value   = "k8s-platform-ingressn-ece0809a4c-00425d7cb902dbca.elb.eu-west-1.amazonaws.com"
     proxied = false
     comment = "Orion-LD Context Broker"
   }
   til = {
     name    = "til"
     type    = "CNAME"
-    value   = "PLACEHOLDER_NLB_HOSTNAME"
+    value   = "k8s-platform-ingressn-ece0809a4c-00425d7cb902dbca.elb.eu-west-1.amazonaws.com"
     proxied = false
     comment = "Trusted Issuers List"
   }
   tir = {
     name    = "tir"
     type    = "CNAME"
-    value   = "PLACEHOLDER_NLB_HOSTNAME"
+    value   = "k8s-platform-ingressn-ece0809a4c-00425d7cb902dbca.elb.eu-west-1.amazonaws.com"
     proxied = false
     comment = "Trusted Issuers Registry"
   }
   ccs = {
     name    = "ccs"
     type    = "CNAME"
-    value   = "PLACEHOLDER_NLB_HOSTNAME"
+    value   = "k8s-platform-ingressn-ece0809a4c-00425d7cb902dbca.elb.eu-west-1.amazonaws.com"
     proxied = false
     comment = "Credentials Config Service"
   }
