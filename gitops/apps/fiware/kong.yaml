@@ -61,7 +61,7 @@ spec:
           enabled: true
           type: ClusterIP
           ingress:
-            enabled: true
+            enabled: false
             ingressClassName: nginx
             hostname: orion.lab-jdmonsalvel.com
             path: /
