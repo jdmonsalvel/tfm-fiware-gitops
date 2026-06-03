@@ -21,7 +21,10 @@ spec:
 
         env:
           database: "off"
-          declarative_config_string: |
+          nginx_worker_processes: "1"
+
+        dblessConfig:
+          config: |
             _format_version: "3.0"
             _transform: true
             services:
