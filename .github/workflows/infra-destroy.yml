@@ -1,0 +1,113 @@
+name: Infra Destroy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to destroy (e.g. dev)'
+        required: true
+        default: 'dev'
+      confirm:
+        description: 'Type DESTROY to confirm complete teardown'
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  destroy:
+    name: Destroy ${{ github.event.inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: aws-lab
+    if: github.event.inputs.confirm == 'DESTROY'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.7"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-terraform-role
+          aws-region: eu-west-1
+          role-session-name: infra-destroy-${{ github.event.inputs.environment }}
+
+      - name: Read framework version from tfvars
+        id: fw_version
+        env:
+          TFVARS: infra/environments/${{ github.event.inputs.environment }}/terraform.tfvars
+        run: |
+          RAW=$(grep -E '^\s*terraform_framework_version\s*=' "$TFVARS" \
+            | head -1 | sed 's/.*=\s*"\(.*\)"/\1/')
+          VERSION="${RAW:-latest}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Framework version: $VERSION"
+
+      - name: Clone framework at resolved version
+        run: |
+          VERSION="${{ steps.fw_version.outputs.version }}"
+          if [ "$VERSION" = "latest" ]; then
+            REF="main"
+          else
+            REF="$VERSION"
+          fi
+          git clone --depth 1 --branch "$REF" \
+            https://github.com/jdmonsalvel/tfm-terraform-framework.git \
+            /tmp/framework
+
+      - name: Setup backend and terraform init
+        working-directory: /tmp/framework
+        env:
+          TF_VAR_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
+          TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          AWS_REGION: eu-west-1
+        run: |
+          bash backend-setup.sh \
+            "${{ github.workspace }}/infra/environments/${{ github.event.inputs.environment }}/terraform.tfvars"
+
+      - name: Update kubeconfig and clean Kubernetes resources
+        env:
+          TF_VAR_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
+        run: |
+          # Actualizar kubeconfig
+          aws eks update-kubeconfig \
+            --name tfm-dev-fiware-gitops \
+            --region eu-west-1 || echo "Cluster no accesible, continuando..."
+
+          # Eliminar aplicaciones ArgoCD para que liberen recursos AWS (NLBs, etc.)
+          kubectl delete application --all -n argocd --ignore-not-found=true || true
+
+          # Esperar a que los servicios LB se eliminen (evitar subredes ocupadas)
+          echo "Esperando 60s para que los NLBs de Kubernetes se eliminen..."
+          sleep 60
+
+          # Verificar que el NLB del ingress-nginx fue eliminado
+          kubectl get svc ingress-nginx-controller -n platform 2>/dev/null && \
+            kubectl delete svc ingress-nginx-controller -n platform || true
+
+          sleep 30
+
+      - name: Terraform Destroy
+        working-directory: /tmp/framework
+        env:
+          TF_VAR_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
+          TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          terraform destroy \
+            -var-file="${{ github.workspace }}/infra/environments/${{ github.event.inputs.environment }}/terraform.tfvars" \
+            -auto-approve
+
+      - name: Confirm teardown
+        run: |
+          echo "======================================"
+          echo "  Infraestructura destruida"
+          echo "  Entorno: ${{ github.event.inputs.environment }}"
+          echo "  Cuenta AWS limpia"
+          echo "  Para redesplegar: gh workflow run infra-deploy.yml"
+          echo "======================================"
