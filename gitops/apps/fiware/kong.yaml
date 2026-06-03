@@ -10,17 +10,18 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: registry-1.docker.io/bitnamicharts
+    repoURL: https://charts.konghq.com
     chart: kong
-    targetRevision: "15.4.22"
+    targetRevision: "3.2.0"
     helm:
       values: |
-        database: "off"
-        replicaCount: 1
-        ingressController:
-          enabled: false
-        kong:
-          declarativeConfig: |
+        image:
+          repository: kong
+          tag: "3.9"
+
+        env:
+          database: "off"
+          declarative_config_string: |
             _format_version: "3.0"
             _transform: true
             services:
@@ -49,39 +50,17 @@ spec:
                   key_claim_name: iss
                   claims_to_verify:
                     - exp
-              - name: cors
-                service: orion-ld-service
-                config:
-                  origins:
-                    - "*"
-                  methods:
-                    - GET
-                    - POST
-                    - PATCH
-                    - DELETE
-                    - OPTIONS
-                  headers:
-                    - Accept
-                    - Authorization
-                    - Content-Type
-                    - Link
-                    - NGSILD-Tenant
-        ingress:
+
+        ingressController:
+          enabled: false
+
+        proxy:
           enabled: true
-          ingressClassName: nginx
-          annotations:
-            cert-manager.io/cluster-issuer: letsencrypt-prod
-          hostname: orion.lab-jdmonsalvel.com
-          path: /
-          pathType: Prefix
-          tls: true
-          selfSigned: false
-          existingTlsSecret: kong-orion-tls
-        service:
           type: ClusterIP
-          ports:
-            proxyHttp: 8000
-            proxyHttps: 8443
+
+        admin:
+          enabled: false
+
         resources:
           requests:
             memory: 256Mi
@@ -89,9 +68,6 @@ spec:
           limits:
             memory: 512Mi
             cpu: 500m
-        postgresql:
-          enabled: false
-        waitForDatabase: false
   destination:
     server: https://kubernetes.default.svc
     namespace: provider
