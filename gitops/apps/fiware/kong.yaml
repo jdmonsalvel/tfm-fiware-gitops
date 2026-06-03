@@ -10,7 +10,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: oci://registry-1.docker.io/bitnamicharts
+    repoURL: registry-1.docker.io/bitnamicharts
     chart: kong
     targetRevision: "15.4.22"
     helm:
