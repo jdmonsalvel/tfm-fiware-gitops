@@ -53,3 +53,11 @@ Thumbs.db
 CLAUDE.md
 2026-*.txt
 output.txt
+
+# Archivos de documentación de trabajo — no versionar en repo técnico
+TFM_*.md
+TFM_*.docx
+TFM_*.pdf
+*.pdf
+*.docx
+.~lock.*
