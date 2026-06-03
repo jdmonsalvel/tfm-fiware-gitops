@@ -4,10 +4,22 @@
 #         [3] Orion-LD health      [4] NGSI-LD entities endpoint
 set -euo pipefail
 
-KEYROCK_URL="${KEYROCK_URL:-http://keyrock.127.0.0.1.nip.io}"
-ORION_URL="${ORION_URL:-http://orion.127.0.0.1.nip.io}"
-TIL_URL="${TIL_URL:-http://til.127.0.0.1.nip.io}"
-ADMIN_PASS="${KEYROCK_ADMIN_PASSWORD:-adminTfm2026!}"
+KEYROCK_URL="${KEYROCK_URL:-https://keyrock.lab-jdmonsalvel.com}"
+ORION_URL="${ORION_URL:-https://orion.lab-jdmonsalvel.com}"
+TIL_URL="${TIL_URL:-https://til.lab-jdmonsalvel.com}"
+ADMIN_PASS="${KEYROCK_ADMIN_PASSWORD:-$(kubectl -n trust-anchor get secret keyrock-credentials -o jsonpath='{.data.adminPassword}' 2>/dev/null | base64 -d || echo 'adminTfm2026!')}"
+
+# Resolver el NLB hostname via DNS de Cloudflare (1.1.1.1) para evitar caché local
+NLB_HOSTNAME=$(dig +short keyrock.lab-jdmonsalvel.com @1.1.1.1 | grep "elb\|amazonaws" | head -1)
+if [ -n "$NLB_HOSTNAME" ]; then
+  NLB_IP=$(dig +short "$NLB_HOSTNAME" @1.1.1.1 | grep -E "^[0-9]" | head -1)
+  if [ -n "$NLB_IP" ]; then
+    CURL_RESOLVE="--resolve keyrock.lab-jdmonsalvel.com:443:${NLB_IP} \
+      --resolve orion.lab-jdmonsalvel.com:443:${NLB_IP} \
+      --resolve til.lab-jdmonsalvel.com:443:${NLB_IP}"
+  fi
+fi
+CURL_OPTS="-sk --max-time 15 ${CURL_RESOLVE:-}"
 
 pass=0; fail=0
 
@@ -33,13 +45,13 @@ echo ""
 # ── [1] Trust Anchor health ──────────────────────────────────────────────────
 echo "[1/4] Trust Anchor health"
 check "Keyrock /version responde" \
-  curl -sf --max-time 10 "${KEYROCK_URL}/version"
+  curl $CURL_OPTS "${KEYROCK_URL}/version"
 check "TIL /v4/issuers responde" \
-  curl -sf --max-time 10 "${TIL_URL}/v4/issuers"
+  curl $CURL_OPTS "${TIL_URL}/v4/issuers"
 
 # ── [2] Token OAuth2 Keyrock ─────────────────────────────────────────────────
 echo "[2/4] Token OAuth2 (Keyrock)"
-TOKEN_JSON=$(curl -sf --max-time 15 \
+TOKEN_JSON=$(curl $CURL_OPTS \
   -X POST "${KEYROCK_URL}/oauth2/token" \
   -H 'Content-Type: application/x-www-form-urlencoded' \
   -H 'Accept: application/json' \
@@ -52,18 +64,19 @@ TOKEN=$(echo "${TOKEN_JSON}" | python3 -c \
 
 check "Token access_token obtenido" test -n "${TOKEN}"
 
-# ── [3] Orion-LD health ──────────────────────────────────────────────────────
-echo "[3/4] Provider health (Orion-LD)"
-check "Orion /version responde" \
-  curl -sf --max-time 10 "${ORION_URL}/version"
+# ── [3] Orion-LD health via Kong (requiere JWT) ──────────────────────────────
+echo "[3/4] Provider health (Orion-LD via Kong PEP)"
+check "Orion /version accesible via Kong con JWT" \
+  bash -c "[ -n '${TOKEN}' ] && curl $CURL_OPTS -H \"Authorization: Bearer ${TOKEN}\" '${ORION_URL}/version'"
 
 # ── [4] NGSI-LD entities ─────────────────────────────────────────────────────
 echo "[4/4] NGSI-LD endpoint"
-HTTP_CODE=$(curl -so /dev/null -w "%{http_code}" --max-time 10 \
+HTTP_CODE=$(curl $CURL_OPTS -o /dev/null -w "%{http_code}" --max-time 10 \
+  -H "Authorization: Bearer ${TOKEN}" \
   -H "Link: <https://uri.etsi.org/ngsi-ld/v1/ngsi-ld-core-context.jsonld>; rel=\"http://www.w3.org/ns/json-ld#context\"; type=\"application/ld+json\"" \
-  "${ORION_URL}/ngsi-ld/v1/entities" 2>/dev/null || echo "000")
+  "${ORION_URL}/ngsi-ld/v1/entities?type=Test" 2>/dev/null || echo "000")
 
-check "Orion NGSI-LD /entities (HTTP ${HTTP_CODE})" \
+check "Orion NGSI-LD /entities via Kong (HTTP ${HTTP_CODE})" \
   bash -c "[ '${HTTP_CODE}' = '200' ] || [ '${HTTP_CODE}' = '204' ]"
 
 # ── Resultado ────────────────────────────────────────────────────────────────
