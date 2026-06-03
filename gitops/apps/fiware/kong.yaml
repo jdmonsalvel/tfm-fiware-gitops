@@ -60,6 +60,14 @@ spec:
         proxy:
           enabled: true
           type: ClusterIP
+          ingress:
+            enabled: true
+            ingressClassName: nginx
+            hostname: orion.lab-jdmonsalvel.com
+            path: /
+            pathType: Prefix
+            annotations:
+              cert-manager.io/cluster-issuer: letsencrypt-prod
 
         admin:
           enabled: false
