@@ -1,13 +1,21 @@
 #!/usr/bin/env bash
 # Smoke test E2E del FIWARE Data Space
-# Valida: [1] Trust Anchor health  [2] Token OAuth2
-#         [3] Orion-LD health      [4] NGSI-LD entities endpoint
+# Valida: [1] Trust Anchor health  [2] JWT HS256 generado
+#         [3] Orion-LD via Kong PEP (JWT válido → 200)
+#         [4] NGSI-LD entities endpoint
+#
+# Flujo iSHARE implementado: el participante presenta un JWT firmado con
+# HS256 cuyo 'iss' está registrado en el TIL. Kong valida la firma y
+# consulta el TIL antes de reenviar la petición a Orion-LD.
 set -euo pipefail
 
 KEYROCK_URL="${KEYROCK_URL:-https://keyrock.lab-jdmonsalvel.com}"
 ORION_URL="${ORION_URL:-https://orion.lab-jdmonsalvel.com}"
 TIL_URL="${TIL_URL:-https://til.lab-jdmonsalvel.com}"
-ADMIN_PASS="${KEYROCK_ADMIN_PASSWORD:-$(kubectl -n trust-anchor get secret keyrock-credentials -o jsonpath='{.data.adminPassword}' 2>/dev/null | base64 -d || echo 'adminTfm2026!')}"
+
+# Credenciales del participante registrado en Kong y en TIL
+JWT_ISS="${JWT_ISS:-fiware-dataspace-provider-app}"
+JWT_SECRET="${JWT_SECRET:-demo-jwt-secret-tfm-2026}"
 
 # Resolver el NLB hostname via DNS de Cloudflare (1.1.1.1) para evitar caché local
 NLB_HOSTNAME=$(dig +short keyrock.lab-jdmonsalvel.com @1.1.1.1 | grep "elb\|amazonaws" | head -1 || true)
@@ -40,6 +48,7 @@ echo "════════════════════════�
 echo "  Keyrock : ${KEYROCK_URL}"
 echo "  Orion   : ${ORION_URL}"
 echo "  TIL     : ${TIL_URL}"
+echo "  ISS     : ${JWT_ISS}"
 echo ""
 
 # ── [1] Trust Anchor health ──────────────────────────────────────────────────
@@ -49,25 +58,32 @@ check "Keyrock /version responde" \
 check "TIL /v4/issuers responde" \
   curl $CURL_OPTS "${TIL_URL}/v4/issuers"
 
-# ── [2] Token OAuth2 Keyrock ─────────────────────────────────────────────────
-echo "[2/4] Token OAuth2 (Keyrock)"
-TOKEN_JSON=$(curl $CURL_OPTS \
-  -X POST "${KEYROCK_URL}/oauth2/token" \
-  -H 'Content-Type: application/x-www-form-urlencoded' \
-  -H 'Accept: application/json' \
-  -u 'idm:idm' \
-  -d "grant_type=password&username=admin&password=${ADMIN_PASS}&scope=openid" \
-  2>/dev/null || echo "{}")
+# ── [2] JWT HS256 ────────────────────────────────────────────────────────────
+echo "[2/4] Token JWT HS256 (participante registrado en TIL)"
 
-TOKEN=$(echo "${TOKEN_JSON}" | python3 -c \
-  "import sys,json; print(json.load(sys.stdin).get('access_token',''))" 2>/dev/null || echo "")
+# Generar JWT con python3 (sin dependencias externas)
+TOKEN=$(python3 - <<PYEOF
+import base64, hashlib, hmac, json, time
 
-check "Token access_token obtenido" test -n "${TOKEN}"
+def b64url(data):
+    if isinstance(data, str):
+        data = data.encode()
+    return base64.urlsafe_b64encode(data).rstrip(b'=').decode()
 
-# ── [3] Orion-LD health via Kong (requiere JWT) ──────────────────────────────
+header  = b64url(json.dumps({"alg":"HS256","typ":"JWT"}))
+payload = b64url(json.dumps({"iss":"${JWT_ISS}","exp":int(time.time())+3600}))
+sig_input = f"{header}.{payload}".encode()
+sig = hmac.new("${JWT_SECRET}".encode(), sig_input, hashlib.sha256).digest()
+print(f"{header}.{payload}.{b64url(sig)}")
+PYEOF
+)
+
+check "JWT generado correctamente" test -n "${TOKEN}"
+
+# ── [3] Orion-LD health via Kong (JWT válido → 200) ─────────────────────────
 echo "[3/4] Provider health (Orion-LD via Kong PEP)"
-check "Orion /version accesible via Kong con JWT" \
-  bash -c "[ -n '${TOKEN}' ] && curl $CURL_OPTS -H \"Authorization: Bearer ${TOKEN}\" '${ORION_URL}/version'"
+check "Orion /version accesible via Kong con JWT válido" \
+  bash -c "curl $CURL_OPTS -H 'Authorization: Bearer ${TOKEN}' '${ORION_URL}/version' | grep -q 'orionld version'"
 
 # ── [4] NGSI-LD entities ─────────────────────────────────────────────────────
 echo "[4/4] NGSI-LD endpoint"
