@@ -10,9 +10,9 @@ TIL_URL="${TIL_URL:-https://til.lab-jdmonsalvel.com}"
 ADMIN_PASS="${KEYROCK_ADMIN_PASSWORD:-$(kubectl -n trust-anchor get secret keyrock-credentials -o jsonpath='{.data.adminPassword}' 2>/dev/null | base64 -d || echo 'adminTfm2026!')}"
 
 # Resolver el NLB hostname via DNS de Cloudflare (1.1.1.1) para evitar caché local
-NLB_HOSTNAME=$(dig +short keyrock.lab-jdmonsalvel.com @1.1.1.1 | grep "elb\|amazonaws" | head -1)
+NLB_HOSTNAME=$(dig +short keyrock.lab-jdmonsalvel.com @1.1.1.1 | grep "elb\|amazonaws" | head -1 || true)
 if [ -n "$NLB_HOSTNAME" ]; then
-  NLB_IP=$(dig +short "$NLB_HOSTNAME" @1.1.1.1 | grep -E "^[0-9]" | head -1)
+  NLB_IP=$(dig +short "$NLB_HOSTNAME" @1.1.1.1 | grep -E "^[0-9]" | head -1 || true)
   if [ -n "$NLB_IP" ]; then
     CURL_RESOLVE="--resolve keyrock.lab-jdmonsalvel.com:443:${NLB_IP} \
       --resolve orion.lab-jdmonsalvel.com:443:${NLB_IP} \
