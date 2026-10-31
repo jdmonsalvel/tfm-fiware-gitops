@@ -22,6 +22,8 @@ spec:
         env:
           database: "off"
           nginx_worker_processes: "1"
+          # El post-function consulta el TIL por HTTP desde el sandbox de Lua.
+          untrusted_lua_sandbox_requires: "resty.http"
 
         dblessConfig:
           config: |
@@ -46,6 +48,12 @@ spec:
                   - algorithm: HS256
                     key: fiware-dataspace-provider-app
                     secret: demo-jwt-secret-tfm-2026
+              # Firma válida pero emisor no registrado en el TIL (escenario 403).
+              - username: unregistered-participant
+                jwt_secrets:
+                  - algorithm: HS256
+                    key: unregistered-participant-app
+                    secret: demo-unregistered-secret-tfm-2026
             plugins:
               - name: jwt
                 service: orion-ld-service
@@ -53,6 +61,27 @@ spec:
                   key_claim_name: iss
                   claims_to_verify:
                     - exp
+              # Corre tras el jwt: solo pasan a Orion los emisores presentes en el TIL.
+              - name: post-function
+                service: orion-ld-service
+                config:
+                  access:
+                    - |
+                      local cred = kong.client.get_credential()
+                      if not cred then
+                        return kong.response.exit(401, { message = "Unauthorized" })
+                      end
+                      local httpc = require("resty.http").new()
+                      httpc:set_timeout(3000)
+                      local res, err = httpc:request_uri(
+                        "http://fiware-til-trusted-issuers-list.trust-anchor.svc.cluster.local:8080/issuer/" .. cred.key)
+                      if not res then
+                        kong.log.err("TIL no disponible: ", err)
+                        return kong.response.exit(503, { message = "Trusted Issuers List unavailable" })
+                      end
+                      if res.status ~= 200 then
+                        return kong.response.exit(403, { message = "Forbidden: issuer not registered in Trusted Issuers List" })
+                      end
 
         ingressController:
           enabled: false
