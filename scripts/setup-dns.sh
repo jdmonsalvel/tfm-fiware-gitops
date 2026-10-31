@@ -22,7 +22,7 @@ log_info "Obteniendo hostname del NLB desde ingress-nginx..."
 NLB_HOSTNAME=""
 for i in $(seq 1 24); do
     NLB_HOSTNAME=$(kubectl get svc ingress-nginx-controller \
-        -n platform \
+        -n ingress-nginx \
         -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
     [ -n "$NLB_HOSTNAME" ] && [ "$NLB_HOSTNAME" != "null" ] && break
     log_warn "NLB aún no disponible, intento $i/24 — esperando 10s..."
@@ -31,7 +31,7 @@ done
 
 [ -z "$NLB_HOSTNAME" ] && {
     log_error "NLB hostname no disponible. Verifica que ingress-nginx esté desplegado:"
-    log_error "  kubectl get svc -n platform ingress-nginx-controller"
+    log_error "  kubectl get svc -n ingress-nginx ingress-nginx-controller"
     exit 1
 }
 
@@ -39,7 +39,11 @@ log_info "NLB hostname: $NLB_HOSTNAME"
 
 # ─── Actualizar tfvars con el hostname real ───────────────────────────────────
 log_info "Actualizando tfvars..."
-sed -i "s|PLACEHOLDER_NLB_HOSTNAME|${NLB_HOSTNAME}|g" "$TFVARS"
+# Sustituye el placeholder o el hostname de un NLB anterior (tras un redeploy).
+sed -i -E \
+    -e "s|PLACEHOLDER_NLB_HOSTNAME|${NLB_HOSTNAME}|g" \
+    -e "s|(value *= *\")[^\"]+\.elb\.[a-z0-9-]+\.amazonaws\.com\"|\1${NLB_HOSTNAME}\"|g" \
+    "$TFVARS"
 
 # ─── Aplicar Terraform (solo módulo cloudflare_dns) ──────────────────────────
 log_info "Aplicando registros DNS en Cloudflare..."
