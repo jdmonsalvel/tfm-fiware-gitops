@@ -1,4 +1,4 @@
-terraform_framework_version = "v1.0.18"
+terraform_framework_version = "v1.0.19"
 
 # account_id se inyecta como TF_VAR_account_id desde GitHub Secret
 # devops_service_account_id: no definido → single-cuenta (state en la misma cuenta)
@@ -29,6 +29,7 @@ subnets = {
     vpc_name          = "fiware-vpc"
     ip_public_auto    = true
     network_acl_name  = "fiware-nacl"
+    tags              = { "kubernetes.io/role/elb" = "1" } # descubrimiento del NLB por el AWS LBC
   }
   subnet-public-1b = {
     name              = "subnet-public-1b"
@@ -37,6 +38,7 @@ subnets = {
     vpc_name          = "fiware-vpc"
     ip_public_auto    = true
     network_acl_name  = "fiware-nacl"
+    tags              = { "kubernetes.io/role/elb" = "1" } # descubrimiento del NLB por el AWS LBC
   }
   subnet-public-1c = {
     name              = "subnet-public-1c"
@@ -45,6 +47,7 @@ subnets = {
     vpc_name          = "fiware-vpc"
     ip_public_auto    = true
     network_acl_name  = "fiware-nacl"
+    tags              = { "kubernetes.io/role/elb" = "1" } # descubrimiento del NLB por el AWS LBC
   }
   # Tier app — nodos EKS
   subnet-app-1a = {
@@ -333,7 +336,7 @@ eks = {
     }
 
     cluster = {
-      kubernetes_version  = "1.34"
+      kubernetes_version  = "1.35"
       deletion_protection = false
     }
 
@@ -361,8 +364,9 @@ eks = {
     # Apaga los nodos de 22:00 UTC (00:00 CEST) a 14:00 UTC (16:00 CEST).
     # Para disparar manualmente: aws lambda invoke --function-name tfm-dev-fiware-gitops-node-scheduler
     #   --payload '{"action":"scale_up"}' /dev/stdout
+    # Desactivado hasta después de la defensa (2026-11-02 08:15 UTC cae en la ventana de apagado).
     node_scheduler = {
-      enabled             = true
+      enabled             = false
       scale_down_cron_utc = "0 22 * * ? *"
       scale_up_cron_utc   = "0 14 * * ? *"
     }
@@ -382,35 +386,35 @@ cloudflare_records = {
   keyrock = {
     name    = "keyrock"
     type    = "CNAME"
-    value   = "k8s-platform-ingressn-ece0809a4c-00425d7cb902dbca.elb.eu-west-1.amazonaws.com"
+    value   = "k8s-ingressn-ingressn-95fd59db58-4e53818cdb3b8599.elb.eu-west-1.amazonaws.com"
     proxied = false
     comment = "Keyrock IdP — Trust Anchor"
   }
   orion = {
     name    = "orion"
     type    = "CNAME"
-    value   = "k8s-platform-ingressn-ece0809a4c-00425d7cb902dbca.elb.eu-west-1.amazonaws.com"
+    value   = "k8s-ingressn-ingressn-95fd59db58-4e53818cdb3b8599.elb.eu-west-1.amazonaws.com"
     proxied = false
     comment = "Orion-LD Context Broker"
   }
   til = {
     name    = "til"
     type    = "CNAME"
-    value   = "k8s-platform-ingressn-ece0809a4c-00425d7cb902dbca.elb.eu-west-1.amazonaws.com"
+    value   = "k8s-ingressn-ingressn-95fd59db58-4e53818cdb3b8599.elb.eu-west-1.amazonaws.com"
     proxied = false
     comment = "Trusted Issuers List"
   }
   tir = {
     name    = "tir"
     type    = "CNAME"
-    value   = "k8s-platform-ingressn-ece0809a4c-00425d7cb902dbca.elb.eu-west-1.amazonaws.com"
+    value   = "k8s-ingressn-ingressn-95fd59db58-4e53818cdb3b8599.elb.eu-west-1.amazonaws.com"
     proxied = false
     comment = "Trusted Issuers Registry"
   }
   ccs = {
     name    = "ccs"
     type    = "CNAME"
-    value   = "k8s-platform-ingressn-ece0809a4c-00425d7cb902dbca.elb.eu-west-1.amazonaws.com"
+    value   = "k8s-ingressn-ingressn-95fd59db58-4e53818cdb3b8599.elb.eu-west-1.amazonaws.com"
     proxied = false
     comment = "Credentials Config Service"
   }
