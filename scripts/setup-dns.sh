@@ -15,6 +15,7 @@ log_error() { echo -e "${RED}[dns]${NC} $1" >&2; }
 
 FW_DIR="${1:?Uso: $0 <fw_dir> <tfvars_path>}"
 TFVARS="${2:?Uso: $0 <fw_dir> <tfvars_path>}"
+TFVARS="$(realpath "$TFVARS")"  # terraform corre en FW_DIR
 
 # ─── Obtener hostname NLB ─────────────────────────────────────────────────────
 log_info "Obteniendo hostname del NLB desde ingress-nginx..."
